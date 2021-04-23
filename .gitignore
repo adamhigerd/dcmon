@@ -1,0 +1,7 @@
+*.o
+*.obj
+dcmon
+*.sw*
+Makefile
+.qmake.cache
+moc_*
