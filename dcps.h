@@ -17,6 +17,8 @@ public slots:
 
 signals:
   void statusChanged(const QString& container, const QString& status);
+  void allStopped();
+  void started();
 
 private slots:
   void onReadyRead();
@@ -25,6 +27,7 @@ private:
   QString dcFile;
   QProcess process;
   QHash<QString, QString> statuses;
+  bool wasStopped;
 };
 
 #endif

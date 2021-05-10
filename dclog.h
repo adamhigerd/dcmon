@@ -11,15 +11,20 @@ public:
 
 public slots:
   void terminate();
+  void pause();
+  void start(int tail = 100);
 
 signals:
   void logMessage(const QDateTime& timestamp, const QString& container, const QString& message);
 
 private slots:
+  void relaunch();
   void onReadyRead();
 
 private:
   QProcess process;
+  QString dcFile;
+  bool shutDown, paused;
 };
 
 #endif

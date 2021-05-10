@@ -29,6 +29,9 @@ void DcToolBar::startAll()
 {
   QDateTime now = QDateTime::currentDateTime();
   for (const QString& container : statuses.keys()) {
+    if (statuses[container] == "running") {
+      continue;
+    }
     emit logMessage(now, container, "*** Start requested ***");
   }
   QProcess* p = new QProcess(this);
@@ -48,6 +51,9 @@ QProcess* DcToolBar::stopAll(bool isRestart)
 {
   QDateTime now = QDateTime::currentDateTime();
   for (const QString& container : statuses.keys()) {
+    if (statuses[container] != "running") {
+      continue;
+    }
     if (isRestart) {
       emit logMessage(now, container, "*** Restart requested ***");
     } else {

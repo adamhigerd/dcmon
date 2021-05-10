@@ -2,8 +2,11 @@
 #define D_DCLOGVIEW_H
 
 #include <QTabWidget>
-#include <QPlainTextEdit>
+#include <QDateTime>
 #include <QHash>
+#include <QTimer>
+#include "treelogmodel.h"
+class QTreeView;
 
 class DcLogView : public QTabWidget {
 Q_OBJECT
@@ -18,18 +21,29 @@ signals:
 public slots:
   void addContainer(const QString& container);
   void logMessage(const QDateTime& timestamp, const QString& container, const QString& message);
+  void logMessage(const QString& container, const QString& message);
   void statusChanged(const QString& container, const QString& status);
   void clearCurrent();
 
 private slots:
   void tabActivated(int index);
+  void onTimer();
 
 protected:
   void showEvent(QShowEvent* event);
 
 private:
-  QHash<QString, QPlainTextEdit*> logs;
+  struct LogTab {
+    QString container;
+    //QPlainTextEdit* view;
+    QTreeView* view;
+    QList<QPair<QDateTime, QString>> queue;
+    QDateTime lastTimestamp;
+  };
+  QHash<QString, LogTab> logs;
   QStringList names;
+  QTimer throttle;
+  TreeLogModel model;
 };
 
 #endif

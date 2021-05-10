@@ -1,6 +1,6 @@
 #include "dcps.h"
 
-DcPs::DcPs(const QString& dcFile, QObject* parent) : QTimer(parent), dcFile(dcFile)
+DcPs::DcPs(const QString& dcFile, QObject* parent) : QTimer(parent), dcFile(dcFile), wasStopped(true)
 {
   process.setProcessChannelMode(QProcess::MergedChannels);
   QObject::connect(&process, SIGNAL(readyRead()), this, SLOT(onReadyRead()));
@@ -59,6 +59,7 @@ void DcPs::poll()
 
 void DcPs::onReadyRead()
 {
+  int numRunning = 0;
   while (process.canReadLine()) {
     QList<QByteArray> line = process.readLine().trimmed().split('|');
     QString container = line[0];
@@ -68,10 +69,19 @@ void DcPs::onReadyRead()
     QString status = line[1];
     if (status == "exited") {
       status = line[2].replace("Exited (", "").split(')')[0];
+    } else {
+      numRunning++;
     }
     if (statuses[container] != status) {
       statuses[container] = status;
       emit statusChanged(container, status);
     }
+  }
+  if (numRunning == 0) {
+    emit allStopped();
+    wasStopped = true;
+  } else if (wasStopped) {
+    wasStopped = false;
+    emit started();
   }
 }

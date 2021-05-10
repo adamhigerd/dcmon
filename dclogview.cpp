@@ -1,25 +1,35 @@
 #include "dclogview.h"
+#include <QTreeView>
 #include <QScrollBar>
 #include <QFontDatabase>
 #include <QStyle>
+#include <QtDebug>
 
 DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent)
 {
   setTabPosition(QTabWidget::South);
   QObject::connect(this, SIGNAL(currentChanged(int)), this, SLOT(tabActivated(int)));
+
+  throttle.setSingleShot(true);
+  throttle.setInterval(100);
+  QObject::connect(&throttle, SIGNAL(timeout()), this, SLOT(onTimer()));
+
+  model.setLogFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
 }
 
 void DcLogView::addContainer(const QString& container)
 {
-  QPlainTextEdit* browser = new QPlainTextEdit(this);
-  browser->setLineWrapMode(QPlainTextEdit::NoWrap);
-  browser->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-  browser->setReadOnly(true);
-  // TODO: configure
-  browser->setMaximumBlockCount(10000);
-  logs[container] = browser;
+  QTreeView* view = new QTreeView(this);
+  view->setModel(&model);
+  view->setRootIndex(model.rootForContainer(container));
+  logs[container] = (LogTab){
+    container,
+    view,
+    QList<QPair<QDateTime, QString>>(),
+    QDateTime(),
+  };
   names << container;
-  addTab(browser, container);
+  addTab(view, container);
 }
 
 void DcLogView::statusChanged(const QString& container, const QString& status)
@@ -27,7 +37,7 @@ void DcLogView::statusChanged(const QString& container, const QString& status)
   if (!logs.contains(container)) {
     addContainer(container);
   }
-  int tabIndex = indexOf(logs[container]);
+  int tabIndex = indexOf(logs[container].view);
   if (status == "running") {
     setTabText(tabIndex, container);
     setTabIcon(tabIndex, style()->standardIcon(QStyle::SP_MediaPlay));
@@ -37,43 +47,50 @@ void DcLogView::statusChanged(const QString& container, const QString& status)
   }
 }
 
-void DcLogView::logMessage(const QDateTime& /*timestamp*/, const QString& container, const QString& message)
+void DcLogView::logMessage(const QString& container, const QString& message)
+{
+  logMessage(QDateTime(), container, message);
+}
+
+void DcLogView::logMessage(const QDateTime& timestamp, const QString& container, const QString& message)
 {
   if (!logs.contains(container)) {
     addContainer(container);
   }
-  QPlainTextEdit* browser = logs[container];
-  QString msg = message;
-  int s = msg.length();
-  for (int i = 0; i < s - 2; i++) {
-    if (msg[i] != 27 || msg[i + 1] != '[') {
-      continue;
+  LogTab* log = &logs[container];
+  if (!timestamp.isNull()) {
+    if (log->lastTimestamp > timestamp) {
+      // Old log message
+      return;
     }
-    for (int j = i + 2; j < s; j++) {
-      QChar ch = msg[j];
-      if (ch == 'm') {
-        msg.replace(i, j - i + 1, "");
-        i -= 1;
-        s = msg.length();
-        break;
-      } else if (!ch.isDigit() && ch != ';') {
-        msg.replace(i, 1, "<ESC>");
-        s += 4;
-        i += 4;
-        break;
-      }
-    }
-    continue;
+    log->lastTimestamp = timestamp;
   }
-  QScrollBar* hs = browser->horizontalScrollBar();
-  int hscroll = hs->value();
-  browser->appendPlainText(msg);
-  hs->setValue(hscroll);
+  log->queue << QPair<QDateTime, QString>(timestamp, message);
+  if (!throttle.isActive()) {
+    throttle.start();
+  }
+}
+
+void DcLogView::onTimer()
+{
+  for (LogTab& log : logs) {
+    QScrollBar* hs = log.view->horizontalScrollBar();
+    int hscroll = hs->value();
+    while (!log.queue.isEmpty()) {
+      auto msg = log.queue.takeFirst();
+      model.logMessage(msg.first, log.container, msg.second);
+    }
+    if (!log.view->rootIndex().isValid()) {
+      log.view->setRootIndex(model.rootForContainer(log.container));
+    }
+    hs->setValue(hscroll);
+    log.view->verticalScrollBar()->triggerAction(QAbstractSlider::SliderToMaximum);
+  }
 }
 
 void DcLogView::tabActivated(int index)
 {
-  QPlainTextEdit* browser = qobject_cast<QPlainTextEdit*>(widget(index));
+  QAbstractScrollArea* browser = qobject_cast<QAbstractScrollArea*>(widget(index));
   if (browser) {
     browser->horizontalScrollBar()->triggerAction(QAbstractSlider::SliderToMinimum);
     browser->verticalScrollBar()->triggerAction(QAbstractSlider::SliderToMaximum);
@@ -98,8 +115,10 @@ void DcLogView::showEvent(QShowEvent* event)
 
 void DcLogView::clearCurrent()
 {
+  /*
   QPlainTextEdit* browser = qobject_cast<QPlainTextEdit*>(currentWidget());
   if (browser) {
     browser->clear();
   }
+  */
 }

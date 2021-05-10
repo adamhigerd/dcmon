@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
+#include <QTreeView>
 #include "dclog.h"
 #include "dcps.h"
 #include "dclogview.h"
@@ -67,6 +68,8 @@ int main(int argc, char** argv) {
   QObject::connect(&tb, SIGNAL(logMessage(QDateTime,QString,QString)), &view, SLOT(logMessage(QDateTime,QString,QString)));
   QObject::connect(&logger, SIGNAL(logMessage(QDateTime,QString,QString)), &view, SLOT(logMessage(QDateTime,QString,QString)));
   QObject::connect(&app, SIGNAL(aboutToQuit()), &logger, SLOT(terminate()));
+  QObject::connect(&ps, SIGNAL(allStopped()), &logger, SLOT(pause()));
+  QObject::connect(&ps, SIGNAL(started()), &logger, SLOT(start()));
 
   win.resize(1024, 768);
   win.show();
