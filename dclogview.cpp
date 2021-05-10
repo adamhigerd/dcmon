@@ -1,9 +1,13 @@
 #include "dclogview.h"
+#include <QApplication>
 #include <QTreeView>
+#include <QHeaderView>
 #include <QScrollBar>
 #include <QFontDatabase>
 #include <QStyle>
-#include <QtDebug>
+#include <QKeyEvent>
+#include <QClipboard>
+#include <algorithm>
 
 DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent)
 {
@@ -20,6 +24,12 @@ DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent)
 void DcLogView::addContainer(const QString& container)
 {
   QTreeView* view = new QTreeView(this);
+  view->installEventFilter(this);
+  view->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+  view->header()->setStretchLastSection(false);
+  view->setHeaderHidden(true);
+  view->setSelectionMode(QTreeView::ExtendedSelection);
+  view->setTextElideMode(Qt::ElideNone);
   view->setModel(&model);
   view->setRootIndex(model.rootForContainer(container));
   logs[container] = (LogTab){
@@ -75,6 +85,8 @@ void DcLogView::onTimer()
 {
   for (LogTab& log : logs) {
     QScrollBar* hs = log.view->horizontalScrollBar();
+    QScrollBar* vs = log.view->verticalScrollBar();
+    bool scrollToBottom = vs->value() == vs->maximum();
     int hscroll = hs->value();
     while (!log.queue.isEmpty()) {
       auto msg = log.queue.takeFirst();
@@ -84,7 +96,9 @@ void DcLogView::onTimer()
       log.view->setRootIndex(model.rootForContainer(log.container));
     }
     hs->setValue(hscroll);
-    log.view->verticalScrollBar()->triggerAction(QAbstractSlider::SliderToMaximum);
+    if (scrollToBottom) {
+      QTimer::singleShot(0, vs, [vs]{ vs->triggerAction(QAbstractSlider::SliderToMaximum); });
+    }
   }
 }
 
@@ -92,8 +106,10 @@ void DcLogView::tabActivated(int index)
 {
   QAbstractScrollArea* browser = qobject_cast<QAbstractScrollArea*>(widget(index));
   if (browser) {
-    browser->horizontalScrollBar()->triggerAction(QAbstractSlider::SliderToMinimum);
-    browser->verticalScrollBar()->triggerAction(QAbstractSlider::SliderToMaximum);
+    QTimer::singleShot(0, browser, [browser]{
+      browser->horizontalScrollBar()->triggerAction(QAbstractSlider::SliderToMinimum);
+      browser->verticalScrollBar()->triggerAction(QAbstractSlider::SliderToMaximum);
+    });
     emit currentContainerChanged(currentContainer());
   }
 }
@@ -115,10 +131,82 @@ void DcLogView::showEvent(QShowEvent* event)
 
 void DcLogView::clearCurrent()
 {
-  /*
-  QPlainTextEdit* browser = qobject_cast<QPlainTextEdit*>(currentWidget());
-  if (browser) {
-    browser->clear();
+  model.clear(currentContainer());
+}
+
+static bool compareTreeIndex(const QModelIndex& lhs, const QModelIndex& rhs)
+{
+  QModelIndexList lp, rp;
+
+  QModelIndex t = lhs;
+  while (t.isValid()) {
+    lp << t;
+    t = t.parent();
   }
-  */
+
+  t = rhs;
+  while (t.isValid()) {
+    rp << t;
+    t = t.parent();
+  }
+
+  while (lp.size() && rp.size() && lp.back().row() == rp.back().row()) {
+    lp.pop_back();
+    rp.pop_back();
+  }
+
+  if (lp.size() && rp.size()) {
+    return lp.back().row() < rp.back().row();
+  }
+  return rp.size() && !lp.size();
+}
+
+static void addRecursive(QModelIndexList& idxs, const QModelIndex& idx)
+{
+  const QAbstractItemModel* model = idx.model();
+  int rc = model->rowCount(idx);
+  for (int i = 0; i < rc; i++) {
+    QModelIndex child = model->index(i, 1, idx);
+    idxs << child;
+    addRecursive(idxs, child);
+  }
+}
+
+bool DcLogView::eventFilter(QObject* watched, QEvent* event)
+{
+  if (event->type() == QEvent::KeyPress) {
+    QKeyEvent* ke = static_cast<QKeyEvent*>(event);
+    if (ke == QKeySequence::Copy) {
+      QTreeView* view = qobject_cast<QTreeView*>(watched);
+      if (view) {
+        copySelected(view);
+        return true;
+      }
+    }
+  }
+  return QTabWidget::eventFilter(watched, event);
+}
+
+void DcLogView::copySelected()
+{
+  copySelected(logs[currentContainer()].view);
+}
+
+void DcLogView::copySelected(QTreeView* view)
+{
+  QModelIndexList idxs;
+  for (const QModelIndex& idx : view->selectionModel()->selectedIndexes()) {
+    if (idx.column() == 1) {
+      idxs << idx;
+      if (!view->isExpanded(idx)) {
+        addRecursive(idxs, idx);
+      }
+    }
+  }
+  std::sort(idxs.begin(), idxs.end(), compareTreeIndex);
+  QString toCopy;
+  for (const QModelIndex& idx : idxs) {
+    toCopy += idx.data(Qt::DisplayRole).toString() + "\n";
+  }
+  qApp->clipboard()->setText(toCopy);
 }

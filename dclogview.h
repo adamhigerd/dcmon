@@ -15,6 +15,8 @@ public:
 
   QString currentContainer() const;
 
+  bool eventFilter(QObject* watched, QEvent* event);
+
 signals:
   void currentContainerChanged(const QString& name);
 
@@ -24,6 +26,7 @@ public slots:
   void logMessage(const QString& container, const QString& message);
   void statusChanged(const QString& container, const QString& status);
   void clearCurrent();
+  void copySelected();
 
 private slots:
   void tabActivated(int index);
@@ -31,11 +34,11 @@ private slots:
 
 protected:
   void showEvent(QShowEvent* event);
+  void copySelected(QTreeView* view);
 
 private:
   struct LogTab {
     QString container;
-    //QPlainTextEdit* view;
     QTreeView* view;
     QList<QPair<QDateTime, QString>> queue;
     QDateTime lastTimestamp;

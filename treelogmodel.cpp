@@ -22,6 +22,7 @@ TreeLogModel::LogLine::LogLine(LogLine* parent, const QDateTime& dt, const QStri
 TreeLogModel::TreeLogModel(QObject* parent)
 : QAbstractItemModel(parent), _maxLines(10000)
 {
+  // initializers only
 }
 
 TreeLogModel::~TreeLogModel()
@@ -97,6 +98,7 @@ void TreeLogModel::logMessage(const QDateTime& timestamp, const QString& contain
     parent->children.push_back(new LogLine(parent, message, indent));
     endInsertRows();
   }
+  flushOldest(container);
 }
 
 #define line_cast(p) const_cast<void*>((void*)static_cast<const TreeLogModel::LogLine*>(p))
@@ -227,4 +229,24 @@ void TreeLogModel::setLogFont(const QFont& font)
 {
   _logFont = font;
   emit dataChanged(createIndex(0, 0, nullptr), createIndex(names.size(), 0, nullptr), QVector<int>() << Qt::FontRole);
+}
+
+void TreeLogModel::clear()
+{
+  for (const QString& name : names) {
+    clear(name);
+  }
+}
+
+void TreeLogModel::clear(const QString& container)
+{
+  int row = names.indexOf(container);
+  if (row < 0) {
+    return;
+  }
+  LogLine* line = roots[container];
+  beginRemoveRows(index(row, 0, QModelIndex()), 0, line->children.size() - 1);
+  qDeleteAll(line->children);
+  line->children.clear();
+  endRemoveRows();
 }

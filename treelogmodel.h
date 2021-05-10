@@ -21,7 +21,6 @@ public:
   QFont logFont() const;
   void setLogFont(const QFont& font);
 
-  //  index(), parent(), rowCount(), columnCount(), and data().
   QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const;
   QModelIndex parent(const QModelIndex& parent) const;
   int rowCount(const QModelIndex& parent = QModelIndex()) const;
@@ -31,6 +30,8 @@ public:
 
 public slots:
   void logMessage(const QDateTime& timestamp, const QString& container, const QString& message);
+  void clear();
+  void clear(const QString& container);
 
 private:
   void flushOldest(const QString& container);

@@ -27,7 +27,7 @@ void DcToolBar::setCurrentContainer(const QString& name)
 
 void DcToolBar::startAll()
 {
-  QDateTime now = QDateTime::currentDateTime();
+  QDateTime now = QDateTime::currentDateTimeUtc();
   for (const QString& container : statuses.keys()) {
     if (statuses[container] == "running") {
       continue;
@@ -49,7 +49,7 @@ void DcToolBar::restartAll()
 
 QProcess* DcToolBar::stopAll(bool isRestart)
 {
-  QDateTime now = QDateTime::currentDateTime();
+  QDateTime now = QDateTime::currentDateTimeUtc();
   for (const QString& container : statuses.keys()) {
     if (statuses[container] != "running") {
       continue;
@@ -69,14 +69,14 @@ QProcess* DcToolBar::stopAll(bool isRestart)
 void DcToolBar::startOne(const QString& name)
 {
   QString container = name.isEmpty() ? this->container : name;
-  emit logMessage(QDateTime::currentDateTime(), container, "*** Start requested ***");
+  emit logMessage(QDateTime::currentDateTimeUtc(), container, "*** Start requested ***");
   runThenPoll(QStringList() << "-f" << dcFile << "up" << "--no-recreate" << "-d" << container);
 }
 
 void DcToolBar::restartOne(const QString& name)
 {
   QString container = name.isEmpty() ? this->container : name;
-  emit logMessage(QDateTime::currentDateTime(), container, "*** Restart requested ***");
+  emit logMessage(QDateTime::currentDateTimeUtc(), container, "*** Restart requested ***");
 
   QProcess* p = new QProcess(this);
   p->start("docker-compose", QStringList() << "-f" << dcFile << "stop" << container);
@@ -88,7 +88,7 @@ void DcToolBar::restartOne(const QString& name)
 void DcToolBar::stopOne(const QString& name)
 {
   QString container = name.isEmpty() ? this->container : name;
-  emit logMessage(QDateTime::currentDateTime(), container, "*** Stop requested ***");
+  emit logMessage(QDateTime::currentDateTimeUtc(), container, "*** Stop requested ***");
   runThenPoll(QStringList() << "-f" << dcFile << "stop" << container);
 }
 
