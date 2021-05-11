@@ -8,6 +8,20 @@
 #include <QKeyEvent>
 #include <QClipboard>
 #include <algorithm>
+#include <QtDebug>
+
+class LogTreeView : public QTreeView
+{
+public:
+  LogTreeView(QWidget* parent) : QTreeView(parent) {}
+
+  void scrollTo(const QModelIndex& idx, QAbstractItemView::ScrollHint hint) {
+    QScrollBar* hs = horizontalScrollBar();
+    int hpos = (hint == EnsureVisible && idx.column() != 0) ? hs->value() : 0;
+    QTreeView::scrollTo(idx, hint);
+    hs->setValue(hpos);
+  }
+};
 
 DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent)
 {
@@ -23,13 +37,14 @@ DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent)
 
 void DcLogView::addContainer(const QString& container)
 {
-  QTreeView* view = new QTreeView(this);
+  QTreeView* view = new LogTreeView(this);
   view->installEventFilter(this);
   view->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
   view->header()->setStretchLastSection(false);
   view->setHeaderHidden(true);
   view->setSelectionMode(QTreeView::ExtendedSelection);
   view->setTextElideMode(Qt::ElideNone);
+  view->setHorizontalScrollMode(QTreeView::ScrollPerPixel);
   view->setModel(&model);
   view->setRootIndex(model.rootForContainer(container));
   logs[container] = (LogTab){
