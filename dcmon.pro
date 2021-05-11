@@ -1,8 +1,11 @@
 TEMPLATE = app
 TARGET = dcmon
-CONFIG += link_pkgconfig debug
-PKGCONFIG += lua53-c++
+### TODO: Lua-based configuration / filtering
+# CONFIG += link_pkgconfig
+# PKGCONFIG += lua53-c++
 QT = core widgets
+MOC_DIR = .obj
+OBJECTS_DIR = .obj
 
-HEADERS = dclog.h   dcps.h   dclogview.h   dctoolbar.h   treelogmodel.h
-SOURCES = dclog.cpp dcps.cpp dclogview.cpp dctoolbar.cpp treelogmodel.cpp main.cpp
+HEADERS = src/dclog.h   src/dcps.h   src/dclogview.h   src/dctoolbar.h   src/treelogmodel.h
+SOURCES = src/dclog.cpp src/dcps.cpp src/dclogview.cpp src/dctoolbar.cpp src/treelogmodel.cpp src/main.cpp
