@@ -18,7 +18,7 @@ LuaException::LuaException(LuaVM* lua)
 
 int LuaVM::atPanic(lua_State* L)
 {
-  int typeID = lua_getfield(L, LUA_REGISTRYINDEX, "LuaVM_atPanic");
+  int typeID = lua_getfield(L, LUA_REGISTRYINDEX, "LuaVM_instance");
   if (typeID == LUA_TLIGHTUSERDATA) {
     LuaVM* vm = reinterpret_cast<LuaVM*>(lua_touserdata(L, -1));
     lua_pop(L, 1);
@@ -28,13 +28,24 @@ int LuaVM::atPanic(lua_State* L)
   throw LuaException(QString::fromUtf8(lua_tostring(L, -1)));
 }
 
+LuaVM* LuaVM::instance(lua_State* L)
+{
+  int typeID = lua_getfield(L, LUA_REGISTRYINDEX, "LuaVM_instance");
+  if (typeID != LUA_TLIGHTUSERDATA) {
+    throw LuaException("LuaVM::instance not found in lua_State");
+  }
+  LuaVM* lua = reinterpret_cast<LuaVM*>(lua_touserdata(L, -1));
+  lua_pop(L, 1);
+  return lua;
+}
+
 LuaVM::LuaVM(QObject* parent)
 : QObject(parent), LuaTableRef(this, LUA_RIDX_GLOBALS), registry(this, LUA_REGISTRYINDEX)
 {
   L = luaL_newstate();
   luaL_openlibs(L);
   lua_atpanic(L, &LuaVM::atPanic);
-  registry.set("LuaVM_atPanic", QVariant::fromValue<void*>(this));
+  registry.set("LuaVM_instance", QVariant::fromValue<void*>(this));
 }
 
 LuaVM::~LuaVM()
@@ -71,6 +82,7 @@ QVariant LuaVM::getStack(int stackSlot, int typeID) const
       lua_pushvalue(L, stackSlot);
       return QVariant::fromValue(LuaTable(new LuaTableRef(const_cast<LuaVM*>(this))));
     case LUA_TFUNCTION:
+      return QVariant::fromValue(LuaFunction(const_cast<LuaVM*>(this), stackSlot));
     case LUA_TTHREAD:
     default:
       qFatal("LuaVM::getStack: unknown/unsupported Lua type");
@@ -91,7 +103,7 @@ QVariant LuaVM::popStack(int typeID)
 
 void LuaVM::pushStack(const QVariant& value)
 {
-  int type = value.type();
+  int type = value.userType();
   switch (type) {
     case QMetaType::Nullptr:
     case QMetaType::UnknownType:
@@ -127,8 +139,12 @@ void LuaVM::pushStack(const QVariant& value)
     default:
       if (type == qMetaTypeId<LuaTable>()) {
         value.value<LuaTable>()->pushStack();
+      } else if (type == qMetaTypeId<LuaFunction>()) {
+        value.value<LuaFunction>().pushStack();
+      } else if (value.canConvert<QObject*>()) {
+        lua_pushlightuserdata(L, value.value<void*>());
       } else {
-        qFatal("LuaVM::pushStack: unsupported Qt type");
+        qFatal("LuaVM::pushStack: unsupported Qt type %s (%d)", QMetaType::typeName(type), type);
       }
   }
 }

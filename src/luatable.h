@@ -3,6 +3,7 @@
 
 #include <QVariant>
 #include <QMetaType>
+#include "luafunction.h"
 class LuaVM;
 
 class LuaTableRef {
@@ -15,10 +16,12 @@ public:
 
   bool has(int key) const;
   QVariant get(int key) const;
+  inline void set(int key, const LuaFunction& value) { set(key, QVariant::fromValue(value)); }
   void set(int key, const QVariant& value);
 
   bool has(const QString& key) const;
   QVariant get(const QString& key) const;
+  inline void set(const QString& key, const LuaFunction& value) { set(key, QVariant::fromValue(value)); }
   void set(const QString& key, const QVariant& value);
   QVariant call(const QString& key, const QVariantList& args) const;
 

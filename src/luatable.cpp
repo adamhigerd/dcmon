@@ -6,7 +6,7 @@
 
 struct RefScope {
   RefScope(const LuaTableRef* t) : L(t->lua->L) {
-    if (t->ref != LUA_REGISTRYINDEX && t->ref != LUA_RIDX_GLOBALS && t->ref != LUA_RIDX_MAINTHREAD) {
+    if (t->ref != LUA_REGISTRYINDEX) {
       lua_geti(L, LUA_REGISTRYINDEX, t->ref);
       pos = lua_gettop(L);
     } else {
@@ -14,7 +14,7 @@ struct RefScope {
     }
   }
   ~RefScope() {
-    if (pos >= 0) {
+    if (pos != LUA_REGISTRYINDEX) {
       if (lua_gettop(L) != pos) {
         qFatal("RefScope: unbalanced stack %d %d", pos, lua_gettop(L));
       }
@@ -42,7 +42,7 @@ LuaTableRef::LuaTableRef(LuaVM* lua, int ref)
 
 LuaTableRef::~LuaTableRef()
 {
-  if (ref != LUA_REGISTRYINDEX && ref != LUA_RIDX_GLOBALS && ref != LUA_RIDX_MAINTHREAD) {
+  if (ref != LUA_REGISTRYINDEX && (ref < 0 || ref > LUA_RIDX_LAST)) {
     luaL_unref(lua->L, LUA_REGISTRYINDEX, ref);
   }
 }
@@ -110,16 +110,7 @@ void LuaTableRef::set(const QString& key, const QVariant& value)
 
 QVariant LuaTableRef::call(const QString& key, const QVariantList& args) const
 {
-  RefScope pos(this);
-  int typeID = lua_getfield(lua->L, pos, key.toUtf8().constData());
-  if (typeID == LUA_TFUNCTION) {
-    int stackTop = lua_gettop(lua->L);
-    for (const QVariant& arg : args) {
-      lua->pushStack(arg);
-    }
-    return lua->call(lua_gettop(lua->L) - stackTop);
-  }
-  throw LuaException(QString("LuaTableRef::call: function not found"));
+  return get(key).value<LuaFunction>()(args);
 }
 
 void LuaTableRef::pushStack() const

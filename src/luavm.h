@@ -7,6 +7,7 @@
 #include <QIODevice>
 #include <stdexcept>
 #include "luatable.h"
+#include "luafunction.h"
 class QIODevice;
 struct lua_State;
 
@@ -22,8 +23,10 @@ class LuaVM : public QObject, public LuaTableRef {
 Q_OBJECT
 friend class LuaException;
 friend class LuaTableRef;
+friend class LuaFunction;
 friend class RefScope;
 public:
+  static LuaVM* instance(lua_State* L);
   LuaVM(QObject* parent = nullptr);
   ~LuaVM();
 
