@@ -1,54 +1,54 @@
 #include <QApplication>
 #include <QMainWindow>
 #include <QStyle>
-#include <QDir>
-#include <QFileInfo>
-#include <QProcess>
 #include <QTreeView>
 #include "dclog.h"
 #include "dcps.h"
 #include "dclogview.h"
 #include "dctoolbar.h"
+#include "fileutil.h"
 
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
-  QString dcFile = ".";
+  QString dcFile;
   {
     QStringList args(app.arguments());
-    if (args.length() > 1) {
-      dcFile = args[1];
-    }
-    dcFile = QDir(dcFile).canonicalPath();
-    if (QFileInfo(dcFile).isDir()) {
-      QDir base(dcFile);
-      do {
-        dcFile = base.absoluteFilePath("docker-compose.yml");
-        if (QFileInfo::exists(dcFile)) {
-          break;
+    bool hasFilename = args.length() > 1;
+    dcFile = findDockerCompose(hasFilename ? args[1] : ".");
+    if (!hasFilename && dcFile.isEmpty()) {
+      dcFile = getLastOpenedFile();
+      if (!dcFile.isEmpty()) {
+        int err = validateDockerCompose(dcFile, true);
+        if (err) {
+          dcFile.clear();
         }
-        dcFile = base.absoluteFilePath("docker-compose.yaml");
-        if (QFileInfo::exists(dcFile)) {
-          break;
+      }
+      if (dcFile.isEmpty()) {
+        dcFile = promptForDockerCompose();
+        if (dcFile.isEmpty()) {
+          // User cancelled
+          return 0;
         }
-      } while (base.cdUp());
+      }
     }
-    if (!QFileInfo::exists(dcFile)) {
+    if (dcFile.isEmpty()) {
       qWarning("%s: could not find docker-compose file", argv[0]);
       return 1;
     }
 
-    QProcess p;
-    p.setProcessChannelMode(QProcess::ForwardedErrorChannel);
-    p.start("docker-compose", QStringList() << "-f" << dcFile << "config");
-    p.waitForFinished();
-    if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
-      return p.exitCode();
+    int err = validateDockerCompose(dcFile);
+    if (err) {
+      return err;
     }
+
+    rememberFile(dcFile);
   }
 
   QMainWindow win;
   win.setWindowIcon(win.style()->standardIcon(QStyle::SP_MediaPause));
+  win.setWindowTitle(QString("dcmon - %1").arg(dcFile));
+  // TODO: menu bar
 
   DcToolBar tb(dcFile);
   win.addToolBar(&tb);
