@@ -1,4 +1,5 @@
 #include "luavm.h"
+#include <QMetaMethod>
 #include <QFileDevice>
 #include <lua.h>
 #include <lualib.h>
@@ -84,8 +85,9 @@ QVariant LuaVM::getStack(int stackSlot, int typeID) const
     case LUA_TFUNCTION:
       return QVariant::fromValue(LuaFunction(const_cast<LuaVM*>(this), stackSlot));
     case LUA_TTHREAD:
+      return QVariant::fromValue<void*>(const_cast<void*>(lua_topointer(L, stackSlot)));
     default:
-      qFatal("LuaVM::getStack: unknown/unsupported Lua type");
+      qFatal("LuaVM::getStack: unknown/unsupported Lua type (%s)", lua_typename(L, typeID));
   }
 }
 
@@ -191,4 +193,53 @@ QVariant LuaVM::call(int stackTop, int err)
     --numResults;
   }
   return results;
+}
+
+LuaTable LuaVM::newTable()
+{
+  lua_newtable(L);
+  return LuaTable(new LuaTableRef(this));
+}
+
+inline static LuaFunction bindMethod(LuaVM* lua, const QMetaObject*, QObject* obj, const char* method)
+{
+  return LuaFunction(lua, obj, method);
+}
+
+inline static LuaFunction bindMethod(LuaVM* lua, const QMetaObject* meta, void* obj, const char* method)
+{
+  return LuaFunction(lua, meta, obj, method);
+}
+
+template <typename T>
+static LuaTable bindMetaObject(LuaVM* lua, const QMetaObject* meta, T obj)
+{
+  LuaTable t = lua->newTable();
+  int numMethods = meta->methodCount();
+  for (int i = 0; i < numMethods; i++) {
+    QMetaMethod method = meta->method(i);
+    if (!method.isValid() || method.access() != QMetaMethod::Public) {
+      continue;
+    }
+    QVariant existing = t->get(QString::fromUtf8(method.name()));
+    if (existing.isValid()) {
+      existing.value<LuaFunction>().addOverload(method.methodSignature().constData());
+    } else {
+      LuaFunction fn = bindMethod(lua, meta, obj, method.methodSignature().constData());
+      t->set(QString::fromUtf8(method.name()), fn);
+    }
+  }
+  // TODO: enums
+  // TODO: properties
+  return t;
+}
+
+LuaTable LuaVM::bindObject(QObject* obj)
+{
+  return bindMetaObject<QObject*>(this, obj->metaObject(), obj);
+}
+
+LuaTable LuaVM::bindGadget(const QMetaObject* meta, void* gadget)
+{
+  return bindMetaObject<void*>(this, meta, gadget);
 }

@@ -52,7 +52,7 @@ QVariantList LuaTableRef::keys() const
   RefScope pos(this);
   lua_pushnil(lua->L);
   QVariantList keys;
-  while (lua_next(lua->L, pos)) {
+  while (lua_next(lua->L, pos) != 0) {
     QVariant key = lua->getStack(-2);
     if (int(key.type()) == QMetaType::QByteArray) {
       keys << QString::fromUtf8(key.toByteArray());

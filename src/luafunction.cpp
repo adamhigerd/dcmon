@@ -4,6 +4,19 @@
 #include <QMetaType>
 #include <lualib.h>
 #include <lauxlib.h>
+#include <cstring>
+
+static const char functionTag[] = "\0LuaFunction";
+
+static bool validateFunctionTag(lua_State* L, int stackIndex)
+{
+  if (!lua_isstring(L, stackIndex)) {
+    return false;
+  }
+  size_t len = 0;
+  const char* tag = lua_tolstring(L, stackIndex, &len);
+  return len == sizeof(functionTag) && std::memcmp(tag, functionTag, sizeof(functionTag)) == 0;
+}
 
 LuaFunction::LuaFunctionData::LuaFunctionData(LuaVM* lua)
 : QSharedData(), lua(lua), fnRef(LUA_NOREF), obj(nullptr), meta(nullptr), gadget(nullptr)
@@ -18,8 +31,8 @@ LuaFunction::LuaFunctionData::~LuaFunctionData()
 
 int LuaFunction::LuaFunctionData::gc(lua_State* L)
 {
-  auto p = reinterpret_cast<QSharedDataPointer<LuaFunctionData>*>(lua_touserdata(L, -1));
-  p->~QSharedDataPointer<LuaFunctionData>();
+  auto p = reinterpret_cast<DPtr*>(lua_touserdata(L, -1));
+  p->~DPtr();
   return 0;
 }
 
@@ -51,24 +64,34 @@ LuaFunction::LuaFunction(LuaVM* vm, lua_CFunction fn)
 }
 
 LuaFunction::LuaFunction(LuaVM* vm, int stackIndex)
-: d(new LuaFunctionData(vm))
 {
-  lua_pushvalue(vm->L, stackIndex);
-  d->fnRef = luaL_ref(vm->L, LUA_REGISTRYINDEX);
+  const char* upvalue = lua_getupvalue(vm->L, stackIndex, 1);
+  bool hasMeta = upvalue && validateFunctionTag(vm->L, -1);
+  if (upvalue) {
+    lua_pop(vm->L, 1);
+  }
+  if (hasMeta) {
+    // This is a bound metaobject function
+    upvalue = lua_getupvalue(vm->L, stackIndex, 2);
+    auto p = reinterpret_cast<DPtr*>(lua_touserdata(vm->L, -1));
+    if (!p) {
+      throw LuaException("LuaFunction: corrupt function");
+    }
+    if (upvalue) {
+      lua_pop(vm->L, 1);
+    }
+    d = *p;
+  } else {
+    // This is an opaque lua_CFunction
+    d = new LuaFunctionData(vm);
+    lua_pushvalue(vm->L, stackIndex);
+    d->fnRef = luaL_ref(vm->L, LUA_REGISTRYINDEX);
+  }
 }
 
 void LuaFunction::initMeta(const QMetaObject* meta, const char* method)
 {
   d->meta = meta;
-  QByteArray signature = d->meta->normalizedSignature(method);
-  if (signature[0] >= '0' && signature[0] <= '9') {
-    signature = signature.mid(1);
-  }
-  int index = d->meta->indexOfMethod(signature);
-  if (index < 0) {
-    throw LuaException("LuaFunction: unknown method");
-  }
-  d->method = d->meta->method(index);
 
   static bool hasMetatable = false;
   if (!hasMetatable) {
@@ -79,14 +102,39 @@ void LuaFunction::initMeta(const QMetaObject* meta, const char* method)
     hasMetatable = true;
   }
 
-  void* buf = lua_newuserdata(d->lua->L, sizeof(QSharedDataPointer<LuaFunctionData>));
-  new (buf) QSharedDataPointer<LuaFunctionData>(d);
+  lua_pushlstring(d->lua->L, functionTag, sizeof(functionTag));
+  void* buf = lua_newuserdata(d->lua->L, sizeof(DPtr));
+  new (buf) DPtr(d);
   lua_getfield(d->lua->L, LUA_REGISTRYINDEX, "LuaFunctionData::gc");
   lua_setmetatable(d->lua->L, -2);
 
-  lua_pushcclosure(d->lua->L, LuaFunction::call, 1);
+  lua_pushcclosure(d->lua->L, LuaFunction::call, 2);
 
   d->fnRef = luaL_ref(d->lua->L, LUA_REGISTRYINDEX);
+
+  addOverload(method);
+}
+
+void LuaFunction::addOverload(const char* method)
+{
+  if (!d->meta) {
+    throw LuaException("LuaFunction: cannot overload non-QMetaObject functions");
+  }
+  QByteArray signature = d->meta->normalizedSignature(method);
+  if (signature[0] >= '0' && signature[0] <= '9') {
+    signature = signature.mid(1);
+  }
+  int index = d->meta->indexOfMethod(signature);
+  if (index < 0) {
+    throw LuaException("LuaFunction: unknown method");
+  }
+  QMetaMethod mmethod = d->meta->method(index);
+  if (d->methods.length() > 0) {
+    if (d->methods.first().name() != mmethod.name()) {
+      throw LuaException("LuaFunction: overloads do not refer to the same method");
+    }
+  }
+  d->methods << mmethod;
 }
 
 QVariant LuaFunction::operator()(const QVariantList& args) const
@@ -111,44 +159,70 @@ int LuaFunction::call(lua_State* L)
 {
   LuaVM* lua = LuaVM::instance(L);
   int n = lua_gettop(L);
-  auto p = reinterpret_cast<QSharedDataPointer<LuaFunctionData>*>(lua_touserdata(L, lua_upvalueindex(1)));
+  auto p = reinterpret_cast<DPtr*>(lua_touserdata(L, lua_upvalueindex(2)));
+  if (!p || !validateFunctionTag(L, lua_upvalueindex(1))) {
+    throw LuaException("LuaFunction: call to corrupted function");
+  }
   const LuaFunctionData* d = p->constData();
   QVariantList args;
-  QList<QByteArray> argData;
   for (int i = n - 1; i >= 0; --i) {
-    QVariant arg = lua->popStack();
-    if (!arg.convert(d->method.parameterType(i))) {
-      throw LuaException("LuaFunction::call: parameter type mismatch");
+    args.insert(0, lua->popStack());
+  }
+  QVariantList convertedArgs;
+  QList<QByteArray> argData;
+  QMetaMethod method;
+  QList<QByteArray> argTypes;
+  bool found = false;
+  for (const QMetaMethod& candidate : d->methods) {
+    method = candidate;
+    found = true;
+    for (int i = 0; i < args.length(); i++) {
+      convertedArgs << args[i];
+      QVariant& arg = convertedArgs.back();
+      if (!arg.convert(method.parameterType(i))) {
+        found = false;
+        break;
+      }
+      convertedArgs << arg;
+      QMetaType argType(method.parameterType(i));
+      QByteArray data(reinterpret_cast<const char*>(arg.constData()), argType.sizeOf());
+      argTypes << QMetaType::typeName(method.parameterType(i));
+      argData << data;
     }
-    QMetaType argType(d->method.parameterType(i));
-    QByteArray data(reinterpret_cast<const char*>(arg.constData()), argType.sizeOf());
-    args.insert(0, arg);
-    argData.insert(0, data);
+    if (found) {
+      break;
+    } else {
+      convertedArgs.clear();
+      argTypes.clear();
+      argData.clear();
+    }
+  }
+  if (!found) {
+    throw LuaException("LuaFunction::call: no matching overload found");
   }
   bool ok = false;
-  bool hasReturn = d->method.returnType() != QMetaType::Void;
-  QList<QByteArray> argTypes = d->method.parameterTypes();
+  bool hasReturn = method.returnType() != QMetaType::Void;
 
 #define ARG(i) (i < n) ? QGenericArgument(argTypes[i].constData(), argData[i].constData()) : QGenericArgument()
 
   if (hasReturn) {
-    QMetaType returnType(d->method.returnType());
-    const char* returnTypeName = QMetaType::typeName(d->method.returnType());
+    QMetaType returnType(method.returnType());
+    const char* returnTypeName = QMetaType::typeName(method.returnType());
     QVariant returnValue;
     std::vector<char> buffer(returnType.sizeOf());
     if (d->obj) {
-      ok = d->method.invoke(d->obj, QGenericReturnArgument(returnTypeName, buffer.data()),
+      ok = method.invoke(d->obj, QGenericReturnArgument(returnTypeName, buffer.data()),
           ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9));
     } else {
-      ok = d->method.invokeOnGadget(d->gadget, QGenericReturnArgument(returnTypeName, buffer.data()),
+      ok = method.invokeOnGadget(d->gadget, QGenericReturnArgument(returnTypeName, buffer.data()),
           ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9));
     }
     lua->pushStack(returnValue);
   } else {
     if (d->obj) {
-      ok = d->method.invoke(d->obj, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9));
+      ok = method.invoke(d->obj, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9));
     } else {
-      ok = d->method.invokeOnGadget(d->gadget, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9));
+      ok = method.invokeOnGadget(d->gadget, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9));
     }
   }
 

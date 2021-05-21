@@ -1,4 +1,5 @@
 #include "dclogview.h"
+#include "luavm.h"
 #include <QApplication>
 #include <QTreeView>
 #include <QHeaderView>
@@ -8,7 +9,6 @@
 #include <QKeyEvent>
 #include <QClipboard>
 #include <algorithm>
-#include <QtDebug>
 
 class LogTreeView : public QTreeView
 {
@@ -23,7 +23,7 @@ public:
   }
 };
 
-DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent)
+DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent), lua(nullptr)
 {
   setTabPosition(QTabWidget::South);
   QObject::connect(this, SIGNAL(currentChanged(int)), this, SLOT(tabActivated(int)));
@@ -224,4 +224,10 @@ void DcLogView::copySelected(QTreeView* view)
     toCopy += idx.data(Qt::DisplayRole).toString() + "\n";
   }
   qApp->clipboard()->setText(toCopy);
+}
+
+void DcLogView::setLuaVM(LuaVM* lua)
+{
+  this->lua = lua;
+  // TODO: connect functions
 }

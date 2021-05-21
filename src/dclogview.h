@@ -7,6 +7,7 @@
 #include <QTimer>
 #include "treelogmodel.h"
 class QTreeView;
+class LuaVM;
 
 class DcLogView : public QTabWidget {
 Q_OBJECT
@@ -16,6 +17,7 @@ public:
   QString currentContainer() const;
 
   bool eventFilter(QObject* watched, QEvent* event);
+  void setLuaVM(LuaVM* lua);
 
 signals:
   void currentContainerChanged(const QString& name);
@@ -47,6 +49,7 @@ private:
   QStringList names;
   QTimer throttle;
   TreeLogModel model;
+  LuaVM* lua;
 };
 
 #endif

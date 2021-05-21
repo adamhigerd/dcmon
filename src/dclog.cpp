@@ -6,7 +6,7 @@ static QRegularExpression timestampRE("^\\s*(?:\\[?\\d{4}-\\d{2}-\\d{2}[T ]\\d{2
 static QString stripColor(QString msg) {
   int s = msg.length();
   for (int i = 0; i < s - 2; i++) {
-    if (msg[i] != 27 || msg[i + 1] != '[') {
+    if (msg[i] != char(27) || msg[i + 1] != '[') {
       continue;
     }
     for (int j = i + 2; j < s; j++) {

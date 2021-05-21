@@ -17,16 +17,18 @@ public:
 
   LuaFunction();
   LuaFunction(LuaVM* vm, QObject* obj, const char* method);
+  LuaFunction(LuaVM* vm, const QMetaObject* meta, void* gadget, const char* method);
   LuaFunction(LuaVM* vm, lua_CFunction fn);
   LuaFunction(const LuaFunction& other) = default;
   LuaFunction(LuaFunction&& other) = default;
 
-  LuaFunction& operator=(const LuaFunction& other) = default;
-  LuaFunction& operator=(LuaFunction&& other) = default;
+  void addOverload(const char* method);
+
+  //LuaFunction& operator=(const LuaFunction& other) = default;
+  //LuaFunction& operator=(LuaFunction&& other) = default;
   QVariant operator()(const QVariantList& args) const;
 
 private:
-  LuaFunction(LuaVM* vm, const QMetaObject* meta, void* gadget, const char* method);
   LuaFunction(LuaVM* vm, int stackIndex);
   static int call(lua_State* L);
 
@@ -43,9 +45,10 @@ private:
     QObject* obj;
     const QMetaObject* meta;
     void* gadget;
-    QMetaMethod method;
+    QList<QMetaMethod> methods;
   };
-  QSharedDataPointer<LuaFunctionData> d;
+  using DPtr = QExplicitlySharedDataPointer<LuaFunctionData>;
+  DPtr d;
 };
 Q_DECLARE_METATYPE(LuaFunction);
 
