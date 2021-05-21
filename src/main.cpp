@@ -12,6 +12,10 @@
 #endif
 
 int main(int argc, char** argv) {
+  QApplication::setApplicationName("dcmon");
+  QApplication::setApplicationVersion("0.0.1");
+  QApplication::setOrganizationName("Alkahest");
+  QApplication::setOrganizationDomain("com.alkahest");
   QApplication app(argc, argv);
 #ifdef D_USE_LUA
   LuaVM lua;
