@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QString>
 #include <QDir>
+class LuaVM;
 
 #define MAX_FILE_HISTORY 4
 
@@ -21,5 +22,10 @@ QString findDockerCompose(const QString& relativeTo);
 int validateDockerCompose(const QString& dcFile, bool quiet = false);
 void rememberFile(const QString& dcFile);
 QString getLastOpenedFile();
+
+#ifdef D_USE_LUA
+QString findDcmonLua(const QString& relativeTo);
+bool loadDcmonLua(LuaVM* lua, const QString& luaFile, QString& dcFile);
+#endif
 
 #endif

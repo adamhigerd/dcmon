@@ -7,15 +7,35 @@
 #include "dclogview.h"
 #include "dctoolbar.h"
 #include "fileutil.h"
+#ifdef D_USE_LUA
+#include "luavm.h"
+#endif
 
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
+#ifdef D_USE_LUA
+  LuaVM lua;
+#endif
 
-  QString dcFile;
+  QString dcFile, luaFile;
   {
     QStringList args(app.arguments());
     bool hasFilename = args.length() > 1;
-    dcFile = findDockerCompose(hasFilename ? args[1] : ".");
+#ifdef D_USE_LUA
+    luaFile = findDcmonLua(hasFilename ? args[1] : ".");
+    try {
+      if (!luaFile.isEmpty() && !loadDcmonLua(&lua, luaFile, dcFile)) {
+        qWarning("%s: could not read dcmon.lua file", argv[0]);
+        return 1;
+      }
+    } catch (LuaException& e) {
+      qWarning("%s: %s", argv[0], e.what());
+      return 1;
+    }
+#endif
+    if (dcFile.isEmpty()) {
+      dcFile = findDockerCompose(hasFilename ? args[1] : ".");
+    }
     if (!hasFilename && dcFile.isEmpty()) {
       dcFile = getLastOpenedFile();
       if (!dcFile.isEmpty()) {
@@ -57,6 +77,13 @@ int main(int argc, char** argv) {
   win.setCentralWidget(&view);
   QObject::connect(&tb, SIGNAL(clearOne()), &view, SLOT(clearCurrent()));
   QObject::connect(&view, SIGNAL(currentContainerChanged(QString)), &tb, SLOT(setCurrentContainer(QString)));
+#ifdef D_USE_LUA
+  if (!luaFile.isEmpty()) {
+    view.setLuaVM(&lua);
+  }
+  //lua.set("dcLogView", lua.bindObject(&view));
+  //lua.get("dcLogView").value<LuaTable>()->call("logMessage", { "a", "bcd" });
+#endif
 
   DcPs ps(dcFile);
   QObject::connect(&ps, SIGNAL(statusChanged(QString,QString)), &view, SLOT(statusChanged(QString,QString)));

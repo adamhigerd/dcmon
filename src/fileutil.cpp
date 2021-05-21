@@ -3,12 +3,16 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QSettings>
+#ifdef D_USE_LUA
+#include "luavm.h"
+#endif
 
 QString promptForDockerCompose()
 {
   static QStringList filters({
-    QString("%1 (docker-compose*.yml docker-compose*.yaml)").arg(FileUtil::tr("docker-compose files")),
-    QString("%1 (**.yml *.yaml)").arg(FileUtil::tr("YAML files")),
+    QString("%1 (dcmon.lua docker-compose*.yml docker-compose*.yaml)").arg(FileUtil::tr("docker-compose files")),
+    QString("%1 (*.yml *.yaml)").arg(FileUtil::tr("YAML files")),
+    QString("%1 (*.lua)").arg(FileUtil::tr("Lua scripts")),
     QString("%1 (*)").arg(FileUtil::tr("All files")),
   });
   return QFileDialog::getOpenFileName(nullptr, FileUtil::tr("Select docker-compose file"), QString(), filters.join(";;"));
@@ -17,6 +21,11 @@ QString promptForDockerCompose()
 QString findDockerCompose(const QString& relativeTo)
 {
   QString dcFile = QDir(relativeTo).canonicalPath();
+  if (dcFile.endsWith(".lua")) {
+    QDir luaPath(dcFile);
+    luaPath.cdUp();
+    dcFile = luaPath.canonicalPath();
+  }
   if (QFileInfo(dcFile).isDir()) {
     QDir base(dcFile);
     do {
@@ -80,3 +89,46 @@ QString getLastOpenedFile()
   }
   return QString();
 }
+
+#ifdef D_USE_LUA
+QString findDcmonLua(const QString& relativeTo)
+{
+  QString luaFile = QDir(relativeTo).canonicalPath();
+  if (QFileInfo(luaFile).isFile() && !luaFile.endsWith(".lua")) {
+    QDir dcPath(luaFile);
+    dcPath.cdUp();
+    luaFile = dcPath.canonicalPath();
+  }
+  if (QFileInfo(luaFile).isDir()) {
+    QDir base(luaFile);
+    do {
+      luaFile = base.absoluteFilePath("dcmon.lua");
+      if (QFileInfo::exists(luaFile)) {
+        break;
+      }
+    } while (!QFileInfo::exists(luaFile) && base.cdUp());
+  }
+  if (!QFileInfo::exists(luaFile)) {
+    return QString();
+  }
+  return luaFile;
+}
+
+bool loadDcmonLua(LuaVM* lua, const QString& luaFile, QString& dcFile)
+{
+  QFile script(luaFile);
+  if (!script.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    return false;
+  }
+  lua->evaluate(&script);
+  QString yml = lua->get("yml").toString();
+  if (!yml.isEmpty()) {
+    QDir base(luaFile);
+    base.cdUp();
+    dcFile = base.absoluteFilePath(yml);
+  } else {
+    dcFile = findDockerCompose(luaFile);
+  }
+  return true;
+}
+#endif
