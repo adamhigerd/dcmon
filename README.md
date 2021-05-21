@@ -11,16 +11,34 @@ offers quick start, stop, and restart commands for monitored containers.
 Building
 --------
 
-Dependencies:
+### Dependencies
+
 * Docker
 * docker-compose
 * Qt (5.12 has been tested, other versions may work)
+* Lua 5.3 (optional)
 
-Build instructions:
+### Build instructions
+
 ```sh
 qmake
 make
 ```
+
+To build a macOS distributable disk image:
+```sh
+qmake
+make
+macdeployqt dcmon.app -dmg
+```
+
+### qmake options
+
+The build can be configured by adding flags to the `qmake` command line.
+
+* To enable experimental/incomplete Lua support, add `USE_LUA=1`.
+* To make a debug build, add `DEBUG=1`.
+
 
 Running
 -------

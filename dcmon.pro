@@ -1,13 +1,24 @@
 TEMPLATE = app
 TARGET = dcmon
-CONFIG += link_pkgconfig debug
-PKGCONFIG += lua53-c++
 QT = core widgets
 MOC_DIR = .obj
 OBJECTS_DIR = .obj
 
+!isEmpty(DEBUG) {
+  CONFIG += debug
+}
+
 HEADERS += src/dclog.h   src/dcps.h   src/dclogview.h   src/dctoolbar.h   src/treelogmodel.h
 SOURCES += src/dclog.cpp src/dcps.cpp src/dclogview.cpp src/dctoolbar.cpp src/treelogmodel.cpp
 
-HEADERS += src/fileutil.h   src/luavm.h   src/luatable.h   src/luafunction.h
-SOURCES += src/fileutil.cpp src/luavm.cpp src/luatable.cpp src/luafunction.cpp src/main.cpp
+HEADERS += src/fileutil.h
+SOURCES += src/fileutil.cpp src/main.cpp
+
+!isEmpty(USE_LUA) {
+  CONFIG += link_pkgconfig
+  PKGCONFIG += lua53-c++
+  DEFINES += D_USE_LUA=1
+
+  HEADERS += src/luavm.h   src/luatable.h   src/luafunction.h
+  SOURCES += src/luavm.cpp src/luatable.cpp src/luafunction.cpp
+}
