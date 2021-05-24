@@ -36,6 +36,11 @@ int LuaFunction::LuaFunctionData::gc(lua_State* L)
   return 0;
 }
 
+bool LuaFunction::LuaFunctionData::isValid() const
+{
+  return fnRef != LUA_NOREF && (!meta || obj || gadget);
+}
+
 LuaFunction::LuaFunction()
 : d(nullptr)
 {
@@ -115,8 +120,16 @@ void LuaFunction::initMeta(const QMetaObject* meta, const char* method)
   addOverload(method);
 }
 
+bool LuaFunction::isValid() const
+{
+  return d && d->isValid();
+}
+
 void LuaFunction::addOverload(const char* method)
 {
+  if (!isValid()) {
+    throw LuaException("LuaFunction: function is not valid");
+  }
   if (!d->meta) {
     throw LuaException("LuaFunction: cannot overload non-QMetaObject functions");
   }
@@ -139,8 +152,8 @@ void LuaFunction::addOverload(const char* method)
 
 QVariant LuaFunction::operator()(const QVariantList& args) const
 {
-  if (!d) {
-    throw LuaException("LuaFunction::operator(): no function");
+  if (!isValid()) {
+    throw LuaException("LuaFunction::operator(): function is not valid");
   }
   int stackTop = lua_gettop(d->lua->L);
   pushStack();
@@ -164,6 +177,9 @@ int LuaFunction::call(lua_State* L)
     throw LuaException("LuaFunction: call to corrupted function");
   }
   const LuaFunctionData* d = p->constData();
+  if (!d->isValid()) {
+    throw LuaException("LuaFunction: call to invalid function");
+  }
   QVariantList args;
   for (int i = n - 1; i >= 0; --i) {
     args.insert(0, lua->popStack());

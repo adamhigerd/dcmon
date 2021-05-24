@@ -225,9 +225,3 @@ void DcLogView::copySelected(QTreeView* view)
   }
   qApp->clipboard()->setText(toCopy);
 }
-
-void DcLogView::setLuaVM(LuaVM* lua)
-{
-  this->lua = lua;
-  // TODO: connect functions
-}

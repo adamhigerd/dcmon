@@ -1,6 +1,7 @@
 #include "dcps.h"
+#include "dcmonconfig.h"
 
-DcPs::DcPs(const QString& dcFile, QObject* parent) : QTimer(parent), dcFile(dcFile), wasStopped(true)
+DcPs::DcPs(QObject* parent) : QTimer(parent), wasStopped(true)
 {
   process.setProcessChannelMode(QProcess::MergedChannels);
   QObject::connect(&process, SIGNAL(readyRead()), this, SLOT(onReadyRead()));
@@ -28,19 +29,20 @@ void DcPs::terminate()
 
 void DcPs::reload()
 {
+  statuses.clear();
   QProcess dc;
-  dc.start("docker-compose", QStringList() << "-f" << dcFile << "ps");
+  dc.start("docker-compose", QStringList() << "-f" << CONFIG->dcFile << "ps");
   dc.waitForFinished();
   while (dc.canReadLine()) {
-    QString line = dc.readLine().trimmed();
-    if (line[0] == '-') {
-      continue;
-    }
-    if (line.startsWith("Name ")) {
+    QString line = dc.readLine();
+    if (line[0] == '-' || line[0] == ' ' || line.startsWith("Name ")) {
       continue;
     }
     int spacePos = line.indexOf(" ");
     QString container = line.left(spacePos);
+    if (CONFIG->hiddenContainers.contains(container)) {
+      continue;
+    }
     statuses[container] = "";
   }
   process.start();

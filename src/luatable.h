@@ -30,6 +30,11 @@ public:
   void set(const QString& key, const QVariant& value);
   QVariant call(const QString& key, const QVariantList& args) const;
 
+  template <typename T>
+  inline T get(int key) const { return get(key).value<T>(); }
+  template <typename T>
+  inline T get(const QString& key) const { return get(key).value<T>(); }
+
   // TODO: QVariant keys? Template keys?
 
 private:

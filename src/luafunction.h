@@ -5,6 +5,7 @@
 #include <QMetaType>
 #include <QMetaMethod>
 #include <QSharedData>
+#include <QPointer>
 #include <lua.h>
 class QObject;
 class LuaVM;
@@ -22,10 +23,12 @@ public:
   LuaFunction(const LuaFunction& other) = default;
   LuaFunction(LuaFunction&& other) = default;
 
+  bool isValid() const;
+
   void addOverload(const char* method);
 
-  //LuaFunction& operator=(const LuaFunction& other) = default;
-  //LuaFunction& operator=(LuaFunction&& other) = default;
+  LuaFunction& operator=(const LuaFunction& other) = default;
+  LuaFunction& operator=(LuaFunction&& other) = default;
   QVariant operator()(const QVariantList& args) const;
 
 private:
@@ -39,10 +42,11 @@ private:
     LuaFunctionData(LuaVM* lua);
     ~LuaFunctionData();
     static int gc(lua_State* L);
+    bool isValid() const;
 
     LuaVM* lua;
     int fnRef;
-    QObject* obj;
+    QPointer<QObject> obj;
     const QMetaObject* meta;
     void* gadget;
     QList<QMetaMethod> methods;

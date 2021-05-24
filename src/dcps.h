@@ -8,7 +8,7 @@
 class DcPs : public QTimer {
 Q_OBJECT
 public:
-  DcPs(const QString& dcFile, QObject* parent = nullptr);
+  DcPs(QObject* parent = nullptr);
 
 public slots:
   void reload();
@@ -24,7 +24,6 @@ private slots:
   void onReadyRead();
 
 private:
-  QString dcFile;
   QProcess process;
   QHash<QString, QString> statuses;
   bool wasStopped;

@@ -1,4 +1,4 @@
-#if defined(D_USE_LUA) && !defined(D_LUAVM_H)
+#ifndef D_LUAVM_H
 #define D_LUAVM_H
 
 #include <QObject>
@@ -7,18 +7,28 @@
 #include <QIODevice>
 #include <QMetaObject>
 #include <stdexcept>
-#include "luatable.h"
-#include "luafunction.h"
 class QIODevice;
-struct lua_State;
 
+class LuaVM;
 class LuaException : public std::runtime_error {
 public:
   LuaException(const QVariant& what);
+#ifdef D_USE_LUA
   LuaException(LuaVM* lua);
+#endif
 
   QVariant errorObject;
 };
+
+#ifndef D_USE_LUA
+class LuaFunction {
+  inline bool isValid() const { return false; }
+  inline QVariant operator()(const QVariantList&) { return QVariant(); }
+};
+#else
+#include "luatable.h"
+#include "luafunction.h"
+struct lua_State;
 
 class LuaVM : public QObject, public LuaTableRef {
 Q_OBJECT
@@ -54,5 +64,6 @@ private:
 
   static int atPanic(lua_State* L);
 };
+#endif
 
 #endif

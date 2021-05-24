@@ -3,11 +3,13 @@
 
 #include <QProcess>
 #include <QDateTime>
+#include <QSet>
+#include "luavm.h"
 
 class DcLog : public QObject {
 Q_OBJECT
 public:
-  DcLog(const QString& dcFile, QObject* parent = nullptr);
+  DcLog(QObject* parent = nullptr);
 
 public slots:
   void terminate();
@@ -23,7 +25,7 @@ private slots:
 
 private:
   QProcess process;
-  QString dcFile;
+  LuaVM* lua;
   bool shutDown, paused;
 };
 

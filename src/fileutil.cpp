@@ -2,7 +2,6 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QProcess>
-#include <QSettings>
 #ifdef D_USE_LUA
 #include "luavm.h"
 #endif
@@ -60,36 +59,6 @@ int validateDockerCompose(const QString& dcFile, bool quiet)
   return 0;
 }
 
-void rememberFile(const QString& dcFile)
-{
-  QSettings settings;
-  settings.beginGroup("history");
-  QStringList history({ dcFile });
-  for (int i = 0; i < MAX_FILE_HISTORY; i++) {
-    QString key = QString("file%1").arg(i);
-    if (settings.contains(key)) {
-      QString path = settings.value(key).toString();
-      if (path != dcFile) {
-        history << path;
-      }
-    }
-  }
-  for (int i = 0; i < MAX_FILE_HISTORY && i < history.length(); i++) {
-    QString key = QString("file%1").arg(i);
-    settings.setValue(key, history[i]);
-  }
-}
-
-QString getLastOpenedFile()
-{
-  QSettings settings;
-  settings.beginGroup("history");
-  if (settings.contains("file0")) {
-    return settings.value("file0").toString();
-  }
-  return QString();
-}
-
 #ifdef D_USE_LUA
 QString findDcmonLua(const QString& relativeTo)
 {
@@ -114,7 +83,7 @@ QString findDcmonLua(const QString& relativeTo)
   return luaFile;
 }
 
-bool loadDcmonLua(LuaVM* lua, const QString& luaFile, QString& dcFile)
+bool loadDcmonLua(LuaVM* lua, const QString& luaFile, QString* dcFile)
 {
   QFile script(luaFile);
   if (!script.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -125,9 +94,9 @@ bool loadDcmonLua(LuaVM* lua, const QString& luaFile, QString& dcFile)
   if (!yml.isEmpty()) {
     QDir base(luaFile);
     base.cdUp();
-    dcFile = base.absoluteFilePath(yml);
+    *dcFile = base.absoluteFilePath(yml);
   } else {
-    dcFile = findDockerCompose(luaFile);
+    *dcFile = findDockerCompose(luaFile);
   }
   return true;
 }

@@ -1,5 +1,7 @@
 #include "dclog.h"
+#include "dcmonconfig.h"
 #include <QRegularExpression>
+#include <QtDebug>
 
 static QRegularExpression timestampRE("^\\s*(?:\\[?\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}(?::\\d{2}(?:[.,]\\d+)?)? ?(?:Z|UTC)?]?\\s?)+");
 
@@ -28,8 +30,7 @@ static QString stripColor(QString msg) {
   return msg;
 }
 
-
-DcLog::DcLog(const QString& dcFile, QObject* parent) : QObject(parent), dcFile(dcFile), shutDown(false), paused(false)
+DcLog::DcLog(QObject* parent) : QObject(parent), shutDown(false), paused(false)
 {
   process.setProcessChannelMode(QProcess::MergedChannels);
   QObject::connect(&process, SIGNAL(readyRead()), this, SLOT(onReadyRead()));
@@ -54,7 +55,7 @@ void DcLog::start(int tail)
     return;
   }
   paused = false;
-  process.start("docker-compose", QStringList() << "-f" << dcFile << "logs" << "--no-color" << "--follow" << QString("--tail=%1").arg(tail) << "--timestamps");
+  process.start("docker-compose", QStringList() << "-f" << CONFIG->dcFile << "logs" << "--no-color" << "--follow" << QString("--tail=%1").arg(tail) << "--timestamps");
 }
 
 void DcLog::terminate()
@@ -93,12 +94,28 @@ void DcLog::onReadyRead()
       doRestart = true;
       continue;
     }
+    if (CONFIG->hiddenContainers.contains(container)) {
+      continue;
+    }
     message = stripColor(message);
     while (message.length() > 0 && message[message.length() - 1].isSpace()) {
       message.chop(1);
     }
     message = message.remove(timestampRE);
     if (!message.isEmpty()) {
+      LuaFunction filter = CONFIG->logFilter(container);
+      if (filter.isValid()) {
+        try {
+          QVariant filtered = filter({ message });
+          if (!filtered.isValid()) {
+            continue;
+          } else if (filtered.canConvert<QByteArray>()) {
+            message = QString::fromUtf8(filtered.toByteArray());
+          }
+        } catch (LuaException& e) {
+          emit logMessage(timestamp, container, tr("Error in filter: %1").arg(QString::fromUtf8(e.what())));
+        }
+      }
       emit logMessage(timestamp, container, message);
     }
   }

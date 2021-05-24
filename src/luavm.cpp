@@ -1,15 +1,17 @@
 #include "luavm.h"
 #include <QMetaMethod>
 #include <QFileDevice>
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
 
 LuaException::LuaException(const QVariant& what)
 : std::runtime_error(what.toString().toUtf8().constData()), errorObject(what)
 {
   // initializers only
 }
+
+#ifdef D_USE_LUA
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 LuaException::LuaException(LuaVM* lua)
 : LuaException(lua->popStack())
@@ -85,6 +87,7 @@ QVariant LuaVM::getStack(int stackSlot, int typeID) const
     case LUA_TFUNCTION:
       return QVariant::fromValue(LuaFunction(const_cast<LuaVM*>(this), stackSlot));
     case LUA_TTHREAD:
+      // XXX: create a new data type to distinguish this
       return QVariant::fromValue<void*>(const_cast<void*>(lua_topointer(L, stackSlot)));
     default:
       qFatal("LuaVM::getStack: unknown/unsupported Lua type (%s)", lua_typename(L, typeID));
@@ -243,3 +246,4 @@ LuaTable LuaVM::bindGadget(const QMetaObject* meta, void* gadget)
 {
   return bindMetaObject<void*>(this, meta, gadget);
 }
+#endif

@@ -17,7 +17,6 @@ public:
   QString currentContainer() const;
 
   bool eventFilter(QObject* watched, QEvent* event);
-  void setLuaVM(LuaVM* lua);
 
 signals:
   void currentContainerChanged(const QString& name);
