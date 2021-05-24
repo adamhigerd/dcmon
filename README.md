@@ -43,9 +43,34 @@ The build can be configured by adding flags to the `qmake` command line.
 Running
 -------
 
-On Windows and Linux, invoke `dcmon` with the path to your `docker-compose.yml` file, or launch it from the directory containing it.
+On Windows and Linux, invoke `dcmon` with the path to your `docker-compose.yml` or
+`dcmon.lua` file, or launch it from the directory containing it.
 
 On macOS, use `open /path/to/dcmon.app --args /path/to/docker-compose.yml`.
+
+
+Configuration
+-------------
+
+If Lua support is enabled with the `USE_LUA=1` flag, then dcmon looks for a
+`dcmon.lua` file in the same directory or a parent directory of the
+`docker-compose.yml` file, or you may specify a `.lua` file instead of a `.yml` file.
+This file is used for configuring dcmon's behavior for the associated project.
+
+The following global variables are recognized:
+
+* `yml`: If present, specifies an absolute or relative path to the corresponding
+  `docker-compose.yml` file. If a `docker-compose.yml` was specified on the command
+  line, then it is an error for this to refer to a different file.
+* `containers`: A table specifying per-container configuration. The table keys are
+  the container names (not the docker-compose service names) and the values are tables
+  that may contain the following options:
+  * `hide`: Boolean. If `true`, hides the container in the UI.
+  * `filter`: Function. If present, the function will be called for each log line
+    received. It will receive the line of text as a string parameter. If the function
+    returns `nil` the line is suppressed. Otherwise, if it returns a string, that
+    string will be emitted into the log.
+* `views`: _TODO: A table specifying definitions for a set of filter views._
 
 
 Roadmap
