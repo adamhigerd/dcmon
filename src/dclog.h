@@ -14,7 +14,7 @@ public:
 public slots:
   void terminate();
   void pause();
-  void start(int tail = 100);
+  void start(int tail = 1000);
 
 signals:
   void logMessage(const QDateTime& timestamp, const QString& container, const QString& message);

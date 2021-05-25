@@ -64,14 +64,20 @@ void TreeLogModel::flushOldest(const QString& container)
   endRemoveRows();
 }
 
+void TreeLogModel::addContainer(const QString& container)
+{
+  if (roots.contains(container)) {
+    return;
+  }
+  beginInsertRows(QModelIndex(), names.size(), names.size());
+  names << container;
+  roots[container] = new LogLine();
+  endInsertRows();
+}
+
 void TreeLogModel::logMessage(const QDateTime& timestamp, const QString& container, const QString& message)
 {
-  if (!roots.contains(container)) {
-    beginInsertRows(QModelIndex(), names.size(), names.size());
-    names << container;
-    roots[container] = new LogLine();
-    endInsertRows();
-  }
+  addContainer(container);
   LogLine& root = *roots[container];
   int indent = 0;
   while (indent < message.size() && message[indent].isSpace()) {

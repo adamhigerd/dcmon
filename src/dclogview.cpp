@@ -29,7 +29,9 @@ DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent), lua(nullptr)
 
 void DcLogView::addContainer(const QString& container)
 {
+  model.addContainer(container);
   DcLogTab* pane = new DcLogTab(&model, container, this);
+  pane->setRootIndex(model.rootForContainer(container));
   logs[container] = pane;
   names << container;
   addTab(pane, container);
@@ -89,12 +91,9 @@ void DcLogView::onTimer()
 
 void DcLogView::tabActivated(int index)
 {
-  QAbstractScrollArea* browser = qobject_cast<QAbstractScrollArea*>(widget(index));
-  if (browser) {
-    QTimer::singleShot(0, browser, [browser]{
-      browser->horizontalScrollBar()->triggerAction(QAbstractSlider::SliderToMinimum);
-      browser->verticalScrollBar()->triggerAction(QAbstractSlider::SliderToMaximum);
-    });
+  DcLogTab* tab = qobject_cast<DcLogTab*>(widget(index));
+  if (tab) {
+    tab->setScrollPos(QPoint(0, -1));
     emit currentContainerChanged(currentContainer());
   }
 }

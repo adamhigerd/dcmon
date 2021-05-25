@@ -29,6 +29,7 @@ public:
   QVariant data(const QModelIndex& index, int role) const;
 
 public slots:
+  void addContainer(const QString& container);
   void logMessage(const QDateTime& timestamp, const QString& container, const QString& message);
   void clear();
   void clear(const QString& container);
