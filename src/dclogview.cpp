@@ -1,27 +1,19 @@
 #include "dclogview.h"
+#include "dclogtab.h"
 #include "luavm.h"
 #include <QApplication>
 #include <QTreeView>
 #include <QHeaderView>
 #include <QScrollBar>
+#include <QVBoxLayout>
+#include <QLineEdit>
+#include <QMenu>
+#include <QAction>
 #include <QFontDatabase>
 #include <QStyle>
 #include <QKeyEvent>
 #include <QClipboard>
 #include <algorithm>
-
-class LogTreeView : public QTreeView
-{
-public:
-  LogTreeView(QWidget* parent) : QTreeView(parent) {}
-
-  void scrollTo(const QModelIndex& idx, QAbstractItemView::ScrollHint hint) {
-    QScrollBar* hs = horizontalScrollBar();
-    int hpos = (hint == EnsureVisible && idx.column() != 0) ? hs->value() : 0;
-    QTreeView::scrollTo(idx, hint);
-    hs->setValue(hpos);
-  }
-};
 
 DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent), lua(nullptr)
 {
@@ -37,24 +29,10 @@ DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent), lua(nullptr)
 
 void DcLogView::addContainer(const QString& container)
 {
-  QTreeView* view = new LogTreeView(this);
-  view->installEventFilter(this);
-  view->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-  view->header()->setStretchLastSection(false);
-  view->setHeaderHidden(true);
-  view->setSelectionMode(QTreeView::ExtendedSelection);
-  view->setTextElideMode(Qt::ElideNone);
-  view->setHorizontalScrollMode(QTreeView::ScrollPerPixel);
-  view->setModel(&model);
-  view->setRootIndex(model.rootForContainer(container));
-  logs[container] = (LogTab){
-    container,
-    view,
-    QList<QPair<QDateTime, QString>>(),
-    QDateTime(),
-  };
+  DcLogTab* pane = new DcLogTab(&model, container, this);
+  logs[container] = pane;
   names << container;
-  addTab(view, container);
+  addTab(pane, container);
 }
 
 void DcLogView::statusChanged(const QString& container, const QString& status)
@@ -62,7 +40,7 @@ void DcLogView::statusChanged(const QString& container, const QString& status)
   if (!logs.contains(container)) {
     addContainer(container);
   }
-  int tabIndex = indexOf(logs[container].view);
+  int tabIndex = indexOf(logs[container]);
   if (status == "running") {
     setTabText(tabIndex, container);
     setTabIcon(tabIndex, style()->standardIcon(QStyle::SP_MediaPlay));
@@ -82,7 +60,7 @@ void DcLogView::logMessage(const QDateTime& timestamp, const QString& container,
   if (!logs.contains(container)) {
     addContainer(container);
   }
-  LogTab* log = &logs[container];
+  DcLogTab* log = logs[container];
   if (!timestamp.isNull()) {
     if (log->lastTimestamp > timestamp) {
       // Old log message
@@ -98,22 +76,14 @@ void DcLogView::logMessage(const QDateTime& timestamp, const QString& container,
 
 void DcLogView::onTimer()
 {
-  for (LogTab& log : logs) {
-    QScrollBar* hs = log.view->horizontalScrollBar();
-    QScrollBar* vs = log.view->verticalScrollBar();
-    bool scrollToBottom = vs->value() == vs->maximum();
-    int hscroll = hs->value();
-    while (!log.queue.isEmpty()) {
-      auto msg = log.queue.takeFirst();
-      model.logMessage(msg.first, log.container, msg.second);
+  for (DcLogTab* log : logs) {
+    QPoint scrollPos = log->scrollPos();
+    while (!log->queue.isEmpty()) {
+      auto msg = log->queue.takeFirst();
+      model.logMessage(msg.first, log->container, msg.second);
     }
-    if (!log.view->rootIndex().isValid()) {
-      log.view->setRootIndex(model.rootForContainer(log.container));
-    }
-    hs->setValue(hscroll);
-    if (scrollToBottom) {
-      QTimer::singleShot(0, vs, [vs]{ vs->triggerAction(QAbstractSlider::SliderToMaximum); });
-    }
+    log->setRootIndex(model.rootForContainer(log->container));
+    log->setScrollPos(scrollPos);
   }
 }
 
@@ -149,79 +119,16 @@ void DcLogView::clearCurrent()
   model.clear(currentContainer());
 }
 
-static bool compareTreeIndex(const QModelIndex& lhs, const QModelIndex& rhs)
+void DcLogView::keyPressEvent(QKeyEvent* event)
 {
-  QModelIndexList lp, rp;
-
-  QModelIndex t = lhs;
-  while (t.isValid()) {
-    lp << t;
-    t = t.parent();
+  if (event == QKeySequence::Find || event->key() == Qt::Key_Escape) {
+    static_cast<QObject*>(logs[currentContainer()])->event(event);
+  } else {
+    QTabWidget::keyPressEvent(event);
   }
-
-  t = rhs;
-  while (t.isValid()) {
-    rp << t;
-    t = t.parent();
-  }
-
-  while (lp.size() && rp.size() && lp.back().row() == rp.back().row()) {
-    lp.pop_back();
-    rp.pop_back();
-  }
-
-  if (lp.size() && rp.size()) {
-    return lp.back().row() < rp.back().row();
-  }
-  return rp.size() && !lp.size();
-}
-
-static void addRecursive(QModelIndexList& idxs, const QModelIndex& idx)
-{
-  const QAbstractItemModel* model = idx.model();
-  int rc = model->rowCount(idx);
-  for (int i = 0; i < rc; i++) {
-    QModelIndex child = model->index(i, 1, idx);
-    idxs << child;
-    addRecursive(idxs, child);
-  }
-}
-
-bool DcLogView::eventFilter(QObject* watched, QEvent* event)
-{
-  if (event->type() == QEvent::KeyPress) {
-    QKeyEvent* ke = static_cast<QKeyEvent*>(event);
-    if (ke == QKeySequence::Copy) {
-      QTreeView* view = qobject_cast<QTreeView*>(watched);
-      if (view) {
-        copySelected(view);
-        return true;
-      }
-    }
-  }
-  return QTabWidget::eventFilter(watched, event);
 }
 
 void DcLogView::copySelected()
 {
-  copySelected(logs[currentContainer()].view);
-}
-
-void DcLogView::copySelected(QTreeView* view)
-{
-  QModelIndexList idxs;
-  for (const QModelIndex& idx : view->selectionModel()->selectedIndexes()) {
-    if (idx.column() == 1) {
-      idxs << idx;
-      if (!view->isExpanded(idx)) {
-        addRecursive(idxs, idx);
-      }
-    }
-  }
-  std::sort(idxs.begin(), idxs.end(), compareTreeIndex);
-  QString toCopy;
-  for (const QModelIndex& idx : idxs) {
-    toCopy += idx.data(Qt::DisplayRole).toString() + "\n";
-  }
-  qApp->clipboard()->setText(toCopy);
+  logs[currentContainer()]->copySelected();
 }

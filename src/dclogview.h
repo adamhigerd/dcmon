@@ -5,9 +5,13 @@
 #include <QDateTime>
 #include <QHash>
 #include <QTimer>
+#include <QSignalMapper>
 #include "treelogmodel.h"
+class FilterProxyModel;
 class QTreeView;
+class QLineEdit;
 class LuaVM;
+class DcLogTab;
 
 class DcLogView : public QTabWidget {
 Q_OBJECT
@@ -15,8 +19,6 @@ public:
   DcLogView(QWidget* parent = nullptr);
 
   QString currentContainer() const;
-
-  bool eventFilter(QObject* watched, QEvent* event);
 
 signals:
   void currentContainerChanged(const QString& name);
@@ -35,16 +37,22 @@ private slots:
 
 protected:
   void showEvent(QShowEvent* event);
+  void keyPressEvent(QKeyEvent* event);
   void copySelected(QTreeView* view);
 
 private:
   struct LogTab {
     QString container;
+    QLineEdit* search;
+    QAction* caseAction;
+    QAction* regexpAction;
     QTreeView* view;
+    FilterProxyModel* filterModel;
     QList<QPair<QDateTime, QString>> queue;
     QDateTime lastTimestamp;
   };
-  QHash<QString, LogTab> logs;
+  QSignalMapper searchUpdatedMapper, searchFinishedMapper;
+  QHash<QString, DcLogTab*> logs;
   QStringList names;
   QTimer throttle;
   TreeLogModel model;

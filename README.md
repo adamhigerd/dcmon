@@ -48,6 +48,13 @@ On Windows and Linux, invoke `dcmon` with the path to your `docker-compose.yml` 
 
 On macOS, use `open /path/to/dcmon.app --args /path/to/docker-compose.yml`.
 
+### Keyboard shortcuts
+
+On macOS, keyboard shortcuts use Command instead of Control.
+
+* Ctrl+F: Opens the search bar. Use the search icon to toggle case-sensitivity and/or regular expressions.
+* Ctrl+C: Copy selected log entries to the clipboard.
+
 
 Configuration
 -------------
@@ -80,7 +87,6 @@ In no particular order:
 
 * Prompt the user for a `docker-compose.yml` file if one is not automatically detected.
 * Lua scripting support for configuration, log filtering, and status reporting.
-* Regular-expression search.
 * Filter views.
 * Desktop notifications for status changes and monitored keywords.
 * UI polish.

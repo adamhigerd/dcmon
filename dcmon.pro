@@ -8,8 +8,8 @@ OBJECTS_DIR = .obj
   CONFIG += debug
 }
 
-HEADERS += src/dclog.h   src/dcps.h   src/dclogview.h   src/dctoolbar.h   src/treelogmodel.h
-SOURCES += src/dclog.cpp src/dcps.cpp src/dclogview.cpp src/dctoolbar.cpp src/treelogmodel.cpp
+HEADERS += src/dclog.h   src/dcps.h   src/dclogview.h   src/dclogtab.h   src/dctoolbar.h   src/treelogmodel.h
+SOURCES += src/dclog.cpp src/dcps.cpp src/dclogview.cpp src/dclogtab.cpp src/dctoolbar.cpp src/treelogmodel.cpp
 
 HEADERS += src/dcmonconfig.h   src/fileutil.h
 SOURCES += src/dcmonconfig.cpp src/fileutil.cpp src/main.cpp
