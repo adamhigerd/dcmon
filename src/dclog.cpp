@@ -106,7 +106,7 @@ void DcLog::onReadyRead()
       LuaFunction filter = CONFIG->logFilter(container);
       if (filter.isValid()) {
         try {
-          QVariant filtered = filter({ message });
+          QVariant filtered = LuaFunction::firstResult(filter({ message }));
           if (!filtered.isValid()) {
             continue;
           } else if (filtered.canConvert<QByteArray>()) {
@@ -117,6 +117,20 @@ void DcLog::onReadyRead()
         }
       }
       emit logMessage(timestamp, container, message);
+
+      for (const QString& view : CONFIG->filterViews.keys()) {
+        LuaFunction filter = CONFIG->filterViews[view];
+        try {
+          QVariant filtered = LuaFunction::firstResult(filter({ container, message }));
+          if (!filtered.isValid()) {
+            continue;
+          } else if (filtered.canConvert<QByteArray>()) {
+            emit logMessage(timestamp, view, QString::fromUtf8(filtered.toByteArray()));
+          }
+        } catch (LuaException& e) {
+          emit logMessage(timestamp, view, tr("Error in view: %1").arg(QString::fromUtf8(e.what())));
+        }
+      }
     }
   }
   if (doRestart) {

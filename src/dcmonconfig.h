@@ -21,9 +21,13 @@ public:
   QStringList openHistory() const;
 
   QSet<QString> hiddenContainers;
+  QHash<QString, LuaFunction> filterViews;
   LuaFunction logFilter(const QString& container) const;
 
   QString dcFile, luaFile;
+
+public slots:
+  void reloadLua();
 
 private:
   void loadFileByExtension(const QString& path, bool quiet = false);
@@ -34,6 +38,7 @@ private:
 #ifdef D_USE_LUA
   LuaVM lua;
   QHash<QString, LuaFunction> filters;
+  void initFromLua();
 #endif
 };
 

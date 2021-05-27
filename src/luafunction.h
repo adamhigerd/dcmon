@@ -30,6 +30,7 @@ public:
   LuaFunction& operator=(const LuaFunction& other) = default;
   LuaFunction& operator=(LuaFunction&& other) = default;
   QVariant operator()(const QVariantList& args) const;
+  static QVariant firstResult(const QVariant& results);
 
 private:
   LuaFunction(LuaVM* vm, int stackIndex);

@@ -1,5 +1,6 @@
 #include "dclogview.h"
 #include "dclogtab.h"
+#include "dcmonconfig.h"
 #include "luavm.h"
 #include <QApplication>
 #include <QTreeView>
@@ -25,6 +26,10 @@ DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent), lua(nullptr)
   QObject::connect(&throttle, SIGNAL(timeout()), this, SLOT(onTimer()));
 
   model.setLogFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+
+  for (const QString& view : CONFIG->filterViews.keys()) {
+    statusChanged(view, "filter");
+  }
 }
 
 void DcLogView::addContainer(const QString& container)
@@ -43,7 +48,10 @@ void DcLogView::statusChanged(const QString& container, const QString& status)
     addContainer(container);
   }
   int tabIndex = indexOf(logs[container]);
-  if (status == "running") {
+  if (status == "filter") {
+    setTabText(tabIndex, container);
+    setTabIcon(tabIndex, style()->standardIcon(QStyle::SP_FileDialogContentsView));
+  } else if (status == "running") {
     setTabText(tabIndex, container);
     setTabIcon(tabIndex, style()->standardIcon(QStyle::SP_MediaPlay));
   } else {

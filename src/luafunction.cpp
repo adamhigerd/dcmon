@@ -248,3 +248,15 @@ int LuaFunction::call(lua_State* L)
 
   return hasReturn ? 1 : 0;
 }
+
+QVariant LuaFunction::firstResult(const QVariant& results)
+{
+  if (!results.canConvert<QVariantList>()) {
+    return results;
+  }
+  QVariantList list = results.value<QVariantList>();
+  if (list.length() > 0) {
+    return list[0];
+  }
+  return QVariant();
+}

@@ -77,7 +77,11 @@ The following global variables are recognized:
     received. It will receive the line of text as a string parameter. If the function
     returns `nil` the line is suppressed. Otherwise, if it returns a string, that
     string will be emitted into the log.
-* `views`: _TODO: A table specifying definitions for a set of filter views._
+* `views`: A table of filter views. The table key is the name of the filter view.
+  The value is a function that takes the name of a container and a line of text.
+  The function is called for every line logged by every container. If it returns a
+  string, that string is appended to the filter view. Otherwise, the line is
+  suppressed.
 
 
 Roadmap

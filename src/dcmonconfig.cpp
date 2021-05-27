@@ -69,6 +69,20 @@ void DcmonConfig::parseArgs(const QStringList& args)
   rememberFile(luaFile.isEmpty() ? dcFile : luaFile);
 }
 
+void DcmonConfig::reloadLua()
+{
+#ifdef D_USE_LUA
+  if (luaFile.isEmpty()) {
+    return;
+  }
+  QString luaDcFile;
+  if (!loadDcmonLua(&lua, luaFile, &luaDcFile)) {
+    throw LuaException("could not read dcmon.lua file");
+  }
+  initFromLua();
+#endif
+}
+
 void DcmonConfig::loadFileByExtension(const QString& path, bool quiet)
 {
   if (path.endsWith(".lua")) {
@@ -128,7 +142,15 @@ void DcmonConfig::loadLuaFile(const QString& path, bool quiet)
     }
   }
 
+  initFromLua();
+#endif
+}
+
+#ifdef D_USE_LUA
+void DcmonConfig::initFromLua()
+{
   LuaTable containers = lua.get("containers").value<LuaTable>();
+  filters.clear();
   for (const QVariant& keyVariant : containers->keys()) {
     QString key = keyVariant.toString();
     LuaTable container = containers->get<LuaTable>(key);
@@ -142,8 +164,18 @@ void DcmonConfig::loadLuaFile(const QString& path, bool quiet)
       filters[key] = filter.value<LuaFunction>();
     }
   }
-#endif
+
+  LuaTable views = lua.get("views").value<LuaTable>();
+  filterViews.clear();
+  for (const QVariant& keyVariant : views->keys()) {
+    QString key = keyVariant.toString();
+    LuaFunction view = views->get<LuaFunction>(key);
+    if (view.isValid()) {
+      filterViews[key] = view;
+    }
+  }
 }
+#endif
 
 QStringList DcmonConfig::openHistory() const
 {
