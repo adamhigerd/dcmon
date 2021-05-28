@@ -21,14 +21,12 @@ Building
 ### Build instructions
 
 ```sh
-qmake
+qmake  # optionally, see qmake options below
 make
 ```
 
-To build a macOS distributable disk image:
+To create a macOS distributable disk image after compiling:
 ```sh
-qmake
-make
 macdeployqt dcmon.app -dmg
 ```
 
@@ -47,6 +45,11 @@ On Windows and Linux, invoke `dcmon` with the path to your `docker-compose.yml` 
 `dcmon.lua` file, or launch it from the directory containing it.
 
 On macOS, use `open /path/to/dcmon.app --args /path/to/docker-compose.yml`.
+
+If launched without any parameters and no `docker-compose.yml` or `dcmon.lua` file
+is found, then the last opened file will be used. If no file has been opened before,
+or if the file could not be opened successfully, then dcmon will prompt the user
+to choose a file.
 
 ### Keyboard shortcuts
 
@@ -89,10 +92,9 @@ Roadmap
 
 In no particular order:
 
-* Prompt the user for a `docker-compose.yml` file if one is not automatically detected.
-* Lua scripting support for configuration, log filtering, and status reporting.
-* Filter views.
+* Lua scripting support for status reporting.
 * Desktop notifications for status changes and monitored keywords.
+* Container status viewer.
 * UI polish.
 * Documentation.
 
