@@ -11,8 +11,8 @@ OBJECTS_DIR = .obj
 HEADERS += src/dclog.h   src/dcps.h   src/dclogview.h   src/dclogtab.h   src/dctoolbar.h   src/treelogmodel.h
 SOURCES += src/dclog.cpp src/dcps.cpp src/dclogview.cpp src/dclogtab.cpp src/dctoolbar.cpp src/treelogmodel.cpp
 
-HEADERS += src/dcmonconfig.h   src/fileutil.h
-SOURCES += src/dcmonconfig.cpp src/fileutil.cpp src/main.cpp
+HEADERS += src/dcmonwindow.h   src/dcmonconfig.h   src/fileutil.h
+SOURCES += src/dcmonwindow.cpp src/dcmonconfig.cpp src/fileutil.cpp src/main.cpp
 
 !isEmpty(USE_LUA) {
   CONFIG += link_pkgconfig

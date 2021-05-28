@@ -27,25 +27,74 @@ DcLogView::DcLogView(QWidget* parent) : QTabWidget(parent), lua(nullptr)
 
   model.setLogFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
 
-  for (const QString& view : CONFIG->filterViews.keys()) {
+  QObject::connect(CONFIG, SIGNAL(configChanged()), this, SLOT(configChanged()));
+  configChanged();
+}
+
+void DcLogView::configChanged()
+{
+  QStringList newViews = CONFIG->filterViews.keys();
+  for (int i = names.length() - 1; i >= 0; --i) {
+    QString name = names[i];
+    if (!filterViews.contains(name)) {
+      continue;
+    } else if (newViews.contains(name)) {
+      newViews.removeAll(name);
+    } else {
+      destroyTab(i);
+    }
+  }
+  for (const QString& view : newViews) {
+    filterViews << view;
     statusChanged(view, "filter");
   }
 }
 
-void DcLogView::addContainer(const QString& container)
+void DcLogView::containerListChanged(const QStringList& containerList)
+{
+  QStringList newNames = containerList;
+  for (int i = names.length() - 1; i >= 0; --i) {
+    QString name = names[i];
+    if (filterViews.contains(name)) {
+      continue;
+    } else if (newNames.contains(name)) {
+      newNames.removeAll(name);
+    } else {
+      destroyTab(i);
+    }
+  }
+  for (const QString& name : newNames) {
+    addContainer(name, false);
+  }
+}
+
+void DcLogView::destroyTab(int index)
+{
+  removeTab(index);
+  QString name = names.takeAt(index);
+  logs[name]->deleteLater();
+  logs.remove(name);
+}
+
+void DcLogView::addContainer(const QString& container, bool isFilter)
 {
   model.addContainer(container);
   DcLogTab* pane = new DcLogTab(&model, container, this);
   pane->setRootIndex(model.rootForContainer(container));
   logs[container] = pane;
-  names << container;
-  addTab(pane, container);
+  if (isFilter) {
+    names.insert(0, container);
+    insertTab(0, pane, container);
+  } else {
+    names << container;
+    addTab(pane, container);
+  }
 }
 
 void DcLogView::statusChanged(const QString& container, const QString& status)
 {
   if (!logs.contains(container)) {
-    addContainer(container);
+    addContainer(container, status == "filter");
   }
   int tabIndex = indexOf(logs[container]);
   if (status == "filter") {

@@ -11,6 +11,7 @@ DcPs::DcPs(QObject* parent) : QTimer(parent), wasStopped(true)
   setSingleShot(true);
   QObject::connect(&process, SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(start()));
   QObject::connect(this, SIGNAL(timeout()), this, SLOT(poll()));
+  QObject::connect(CONFIG, SIGNAL(configChanged()), this, SLOT(reload()));
 
   reload();
 }
@@ -29,6 +30,9 @@ void DcPs::terminate()
 
 void DcPs::reload()
 {
+  terminate();
+  QStringList oldNames = containerList();
+  bool hasNew = false;
   statuses.clear();
   QProcess dc;
   dc.start("docker-compose", QStringList() << "-f" << CONFIG->dcFile << "ps");
@@ -43,9 +47,17 @@ void DcPs::reload()
     if (CONFIG->hiddenContainers.contains(container)) {
       continue;
     }
+    if (oldNames.contains(container)) {
+      oldNames.removeAll(container);
+    } else {
+      hasNew = true;
+    }
     statuses[container] = "";
   }
   process.start();
+  if (hasNew || !oldNames.isEmpty()) {
+    emit containerListChanged(containerList());
+  }
 }
 
 void DcPs::poll()
@@ -86,4 +98,9 @@ void DcPs::onReadyRead()
     wasStopped = false;
     emit started();
   }
+}
+
+QStringList DcPs::containerList() const
+{
+  return statuses.keys();
 }

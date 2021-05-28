@@ -10,12 +10,15 @@ Q_OBJECT
 public:
   DcPs(QObject* parent = nullptr);
 
+  QStringList containerList() const;
+
 public slots:
   void reload();
   void poll();
   void terminate();
 
 signals:
+  void containerListChanged(const QStringList& containers);
   void statusChanged(const QString& container, const QString& status);
   void allStopped();
   void started();

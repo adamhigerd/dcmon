@@ -2,6 +2,7 @@
 #include "fileutil.h"
 #include "luavm.h"
 #include <QSettings>
+#include <QFileSystemWatcher>
 
 template <typename T = std::runtime_error>
 static inline void throwString(const QString& what)
@@ -67,20 +68,22 @@ void DcmonConfig::parseArgs(const QStringList& args)
     throw std::runtime_error("could not find docker-compose.yml file");
   }
   rememberFile(luaFile.isEmpty() ? dcFile : luaFile);
+#ifndef D_USE_LUA
+  initConfig();
+#endif
 }
 
-void DcmonConfig::reloadLua()
+void DcmonConfig::reloadConfig()
 {
 #ifdef D_USE_LUA
-  if (luaFile.isEmpty()) {
-    return;
+  if (!luaFile.isEmpty()) {
+    QString luaDcFile;
+    if (!loadDcmonLua(&lua, luaFile, &luaDcFile)) {
+      throw LuaException("could not read dcmon.lua file");
+    }
   }
-  QString luaDcFile;
-  if (!loadDcmonLua(&lua, luaFile, &luaDcFile)) {
-    throw LuaException("could not read dcmon.lua file");
-  }
-  initFromLua();
 #endif
+  initConfig();
 }
 
 void DcmonConfig::loadFileByExtension(const QString& path, bool quiet)
@@ -142,15 +145,27 @@ void DcmonConfig::loadLuaFile(const QString& path, bool quiet)
     }
   }
 
-  initFromLua();
+  initConfig();
 #endif
 }
 
-#ifdef D_USE_LUA
-void DcmonConfig::initFromLua()
+void DcmonConfig::initConfig()
 {
+  if (watcher) {
+    // Watchers must be destroyed and recreated because the file may have been replaced
+    watcher->deleteLater();
+  }
+  QStringList fileList({ dcFile });
+  if (!luaFile.isEmpty()) {
+    fileList << luaFile;
+  }
+  watcher = new QFileSystemWatcher(fileList, this);
+  QObject::connect(watcher, SIGNAL(fileChanged(QString)), this, SIGNAL(filesUpdated()));
+
+#ifdef D_USE_LUA
   LuaTable containers = lua.get("containers").value<LuaTable>();
   filters.clear();
+  hiddenContainers.clear();
   for (const QVariant& keyVariant : containers->keys()) {
     QString key = keyVariant.toString();
     LuaTable container = containers->get<LuaTable>(key);
@@ -174,8 +189,10 @@ void DcmonConfig::initFromLua()
       filterViews[key] = view;
     }
   }
-}
 #endif
+
+  emit configChanged();
+}
 
 QStringList DcmonConfig::openHistory() const
 {

@@ -24,7 +24,8 @@ signals:
   void currentContainerChanged(const QString& name);
 
 public slots:
-  void addContainer(const QString& container);
+  void containerListChanged(const QStringList& containerList);
+  void addContainer(const QString& container, bool isFilter = false);
   void logMessage(const QDateTime& timestamp, const QString& container, const QString& message);
   void logMessage(const QString& container, const QString& message);
   void statusChanged(const QString& container, const QString& status);
@@ -32,8 +33,10 @@ public slots:
   void copySelected();
 
 private slots:
+  void destroyTab(int index);
   void tabActivated(int index);
   void onTimer();
+  void configChanged();
 
 protected:
   void showEvent(QShowEvent* event);
@@ -41,19 +44,9 @@ protected:
   void copySelected(QTreeView* view);
 
 private:
-  struct LogTab {
-    QString container;
-    QLineEdit* search;
-    QAction* caseAction;
-    QAction* regexpAction;
-    QTreeView* view;
-    FilterProxyModel* filterModel;
-    QList<QPair<QDateTime, QString>> queue;
-    QDateTime lastTimestamp;
-  };
   QSignalMapper searchUpdatedMapper, searchFinishedMapper;
   QHash<QString, DcLogTab*> logs;
-  QStringList names;
+  QStringList names, filterViews;
   QTimer throttle;
   TreeLogModel model;
   LuaVM* lua;

@@ -5,6 +5,7 @@
 #include <QSet>
 #include <functional>
 #include "luavm.h"
+class QFileSystemWatcher;
 
 #define MAX_FILE_HISTORY 4
 #define CONFIG DcmonConfig::instance()
@@ -26,20 +27,26 @@ public:
 
   QString dcFile, luaFile;
 
+signals:
+  void filesUpdated();
+  void configChanged();
+
 public slots:
-  void reloadLua();
+  void reloadConfig();
 
 private:
   void loadFileByExtension(const QString& path, bool quiet = false);
   void loadDcFile(const QString& path, bool quiet = false);
   void loadLuaFile(const QString& path, bool quiet = false);
   void rememberFile(const QString& dcFile);
+  void initConfig();
 
 #ifdef D_USE_LUA
   LuaVM lua;
   QHash<QString, LuaFunction> filters;
-  void initFromLua();
 #endif
+
+  QFileSystemWatcher* watcher;
 };
 
 #endif
