@@ -45,7 +45,7 @@ private:
     static int gc(lua_State* L);
     bool isValid() const;
 
-    LuaVM* lua;
+    QPointer<LuaVM> lua;
     int fnRef;
     QPointer<QObject> obj;
     const QMetaObject* meta;

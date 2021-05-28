@@ -3,6 +3,7 @@
 
 #include <QVariant>
 #include <QMetaType>
+#include <QPointer>
 #include "luafunction.h"
 class LuaVM;
 
@@ -43,7 +44,7 @@ private:
 
   void pushStack() const;
 
-  LuaVM* lua;
+  QPointer<LuaVM> lua;
   int ref;
 };
 

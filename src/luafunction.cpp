@@ -26,7 +26,9 @@ LuaFunction::LuaFunctionData::LuaFunctionData(LuaVM* lua)
 
 LuaFunction::LuaFunctionData::~LuaFunctionData()
 {
-  luaL_unref(lua->L, LUA_REGISTRYINDEX, fnRef);
+  if (lua && lua->L) {
+    luaL_unref(lua->L, LUA_REGISTRYINDEX, fnRef);
+  }
 }
 
 int LuaFunction::LuaFunctionData::gc(lua_State* L)

@@ -42,6 +42,10 @@ LuaTableRef::LuaTableRef(LuaVM* lua, int ref)
 
 LuaTableRef::~LuaTableRef()
 {
+  if (!lua || !lua->L) {
+    // shutting down, state is already destroyed
+    return;
+  }
   if (ref != LUA_REGISTRYINDEX && (ref < 0 || ref > LUA_RIDX_LAST)) {
     luaL_unref(lua->L, LUA_REGISTRYINDEX, ref);
   }
