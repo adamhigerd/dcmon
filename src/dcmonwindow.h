@@ -16,6 +16,13 @@ public:
 private slots:
   void reloadConfig();
   void filesUpdated();
+  void openHistory();
+  void openDialog();
+  void aboutDialog();
+  void visitWebsite();
+
+private:
+  void open(const QString& path);
 
 private:
   DcToolBar* tb;

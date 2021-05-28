@@ -7,12 +7,19 @@ class QProcess;
 
 class DcToolBar : public QToolBar {
 Q_OBJECT
+friend class DcmonWindow;
 public:
   DcToolBar(const QString& dcFile, QWidget* parent = nullptr);
 
 public slots:
   void setCurrentContainer(const QString& name);
   void statusChanged(const QString& name, const QString& status);
+  void startAll();
+  void restartAll();
+  QProcess* stopAll(bool isRestart = false);
+  void startOne(const QString& name = QString());
+  void restartOne(const QString& name = QString());
+  void stopOne(const QString& name = QString());
 
 signals:
   void pollStatus();
@@ -20,12 +27,6 @@ signals:
   void logMessage(const QDateTime& timestamp, const QString& container, const QString& message);
 
 private slots:
-  void startAll();
-  void restartAll();
-  QProcess* stopAll(bool isRestart = false);
-  void startOne(const QString& name = QString());
-  void restartOne(const QString& name = QString());
-  void stopOne(const QString& name = QString());
   void onPollFinished();
 
 private:

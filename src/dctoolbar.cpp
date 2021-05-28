@@ -6,9 +6,9 @@
 
 DcToolBar::DcToolBar(const QString& dcFile, QWidget* parent) : QToolBar(parent), dcFile(dcFile), pollProcess(nullptr)
 {
-  aStartAll = addAction(style()->standardIcon(QStyle::SP_MediaPlay), "Up", this, SLOT(startAll()));
-  aRestartAll = addAction(style()->standardIcon(QStyle::SP_BrowserReload), "Restart", this, SLOT(restartAll()));
-  aStopAll = addAction(style()->standardIcon(QStyle::SP_MediaStop), "Stop", this, SLOT(stopAll()));
+  aStartAll = addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("&Up All"), this, SLOT(startAll()));
+  aRestartAll = addAction(style()->standardIcon(QStyle::SP_BrowserReload), tr("&Restart All"), this, SLOT(restartAll()));
+  aStopAll = addAction(style()->standardIcon(QStyle::SP_MediaStop), tr("&Stop All"), this, SLOT(stopAll()));
   addSeparator();
   label = new QLabel(this);
   addWidget(label);
@@ -22,7 +22,7 @@ void DcToolBar::setCurrentContainer(const QString& name)
 {
   container = name;
   label->setText("   " + name);
-  statusChanged(container, statuses[container]);
+  statusChanged(container, statuses.contains(container) ? statuses[container] : "filter");
 }
 
 void DcToolBar::startAll()
@@ -94,8 +94,20 @@ void DcToolBar::stopOne(const QString& name)
 
 void DcToolBar::statusChanged(const QString& name, const QString& status)
 {
+  if (name == container && status == "filter") {
+    aStartOne->setVisible(false);
+    aRestartOne->setVisible(false);
+    aStopOne->setVisible(false);
+    aStartOne->setEnabled(false);
+    aRestartOne->setEnabled(false);
+    aStopOne->setEnabled(false);
+    return;
+  }
   statuses[name] = status;
   if (name == container) {
+    aStartOne->setVisible(true);
+    aRestartOne->setVisible(true);
+    aStopOne->setVisible(true);
     aStartOne->setEnabled(status != "running");
     aRestartOne->setEnabled(status == "running");
     aStopOne->setEnabled(status == "running");
